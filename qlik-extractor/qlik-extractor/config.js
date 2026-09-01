@@ -1,6 +1,7 @@
 // config.js
 // Datos de conexion al servidor de Qlik Sense Enterprise.
 
+
 module.exports = {
   engineHost: 'qvserver1.johnson.net',
 
