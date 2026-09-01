@@ -1,0 +1,17 @@
+{
+  "name": "qlik-extractor",
+  "version": "1.0.0",
+  "description": "Extraccion de datos desde Qlik Sense Enterprise (on Windows) via Engine API (enigma.js)",
+  "main": "extract.js",
+  "scripts": {
+    "test-connection": "node connect.js",
+    "list-apps": "node list-apps.js",
+    "list-fields": "node list-fields.js",
+    "extract": "node extract.js"
+  },
+  "dependencies": {
+    "enigma.js": "^2.11.0",
+    "ws": "^8.16.0",
+    "csv-writer": "^1.6.0"
+  }
+}

@@ -1,0 +1,13 @@
+Cuando te entreguen los certificados desde la QMC, copia aca estos 3 archivos:
+
+  - client.pem
+  - client_key.pem
+  - root.pem
+
+Estos son los nombres que espera qlik-session.js. Si te los dan con otro
+nombre (por ejemplo client.crt / client.key), simplemente renombralos o
+ajusta las rutas dentro de qlik-session.js.
+
+IMPORTANTE: nunca subas esta carpeta a un repositorio (ya esta excluida
+en .gitignore). Estos archivos equivalen a una credencial de acceso total
+al motor de Qlik.
