@@ -1,28 +1,10 @@
-# Entorno virtual
-.venv/
+node_modules/
+certs/*.pem
+certs/*.pfx
+output/*.csv
 .env
 
-# Caché de Python
-__pycache__/
-*.pyc
-*.pyo
-
-# Jupyter
-.ipynb_checkpoints/
-
-# VS Code
-.vscode/
-
-# Archivos temporales de Excel
-~$*.xlsx
-~$*.xls
-
-# Archivos del sistema
-.DS_Store
-Thumbs.db
-
-
 files/
-test.email.py
-salida/
 app_anterior/
+.venv/
+

@@ -1,5 +1,0 @@
-node_modules/
-certs/*.pem
-certs/*.pfx
-output/*.csv
-.env
