@@ -8,3 +8,6 @@ files/
 app_anterior/
 .venv/
 
+qlik-graficos/
+qlik-analisis\output
+qlik-analisis\data
