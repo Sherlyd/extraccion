@@ -9,6 +9,7 @@
     "list-fields": "node list-fields.js",
     "list-tables": "node list-tables.js",
     "list-values": "node list-field-values.js",
+    "list-measures": "node list-master-measures.js",
     "extract": "node extract.js"
   },
   "dependencies": {
