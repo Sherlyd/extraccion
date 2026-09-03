@@ -24,24 +24,41 @@ const { openApp } = require('./qlik-session');
 // Los nombres de campo exactos los saca corriendo antes: npm run list-fields
 const extractions = [
   {
-    name: 'ventas_por_producto',
+    name: 'facturacion',
     dimensions: ['Fecha de Alta', 'Tipo Comp', 'Distr.', 'Razon Social Distr', 'Razon Social CF',
-             'Artículo', 'Familia1', 'Ejecutivo de Cuenta', 'Suc.'],
+                 'Artículo', 'Familia1', 'Ejecutivo de Cuenta', 'Suc.'],
     measures: [
-      { label: 'TotalVentas', expr: 'Sum(Ventas)' },
-      { label: 'CantidadPedidos', expr: 'Count(DISTINCT IdPedido)' },
+      { label: 'Cantid', expr: 'Sum(cantid)' },
+      // OJO: reemplazar por la expresion real de importe neto que usa
+      // el sheet de Qlik (Edit sheet -> click en la medida -> copiar
+      // la expresion exacta). No usar un Sum() simple sin confirmar.
+      { label: 'Importe', expr: 'Sum(fv0_impnet)' },
     ],
-    outputFile: 'ventas_por_producto.csv',
+    outputFile: 'facturacion_detalle.csv',
   },
-  // Ejemplo de una segunda extraccion:
-  // {
-  //   name: 'clientes_activos',
-  //   dimensions: ['Cliente', 'Region'],
-  //   measures: [
-  //     { label: 'MontoTotal', expr: 'Sum(Monto)' },
-  //   ],
-  //   outputFile: 'clientes_activos.csv',
-  // },
+  {
+    name: 'pedidos',
+    dimensions: ['numero', 'Razon Social Distr', 'ARTICULO', 'Familia1', 'Ejecutivo de Cuenta', 'Suc.'],
+    measures: [
+      // OJO: confirmar si el campo de cantidad pedida es pe1_candes,
+      // pe1_canrem, u otro -- verificar contra el sheet real.
+      { label: 'Cantid', expr: 'Sum(pe1_candes)' },
+    ],
+    outputFile: 'pedidos_detalle.csv',
+  },
+  {
+    name: 'cartera',
+    dimensions: ['numero', 'Razon Social Distr', 'Estado Pedido', 'ONF Activa', 'Familia1',
+                 'Ejecutivo de Cuenta', 'Suc.'],
+    measures: [
+      // OJO: esta es la mas importante de confirmar. "Total Pendiente"
+      // en el sheet "Detalle Colchon" casi seguro es una expresion con
+      // set analysis, no un campo plano. Copiar la expresion exacta
+      // desde Qlik antes de correr esto en serio.
+      { label: 'Total Pendiente', expr: 'Sum(Colchon)' },
+    ],
+    outputFile: 'cartera_pendiente.csv',
+  },
 ];
 
 const PAGE_SIZE = 5000;
