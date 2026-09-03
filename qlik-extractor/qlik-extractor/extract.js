@@ -48,14 +48,15 @@ const extractions = [
   },
   {
     name: 'cartera',
-    dimensions: ['numero', 'Razon Social Distr', 'Estado Pedido', 'ONF Activa', 'Familia1',
-                 'Ejecutivo de Cuenta', 'Suc.'],
+    dimensions: ['MesAño', 'pe1_numero', 'estado', 'Razon Social Distr', 'Razon Social CF',
+                 'cls_sucurs', 'Ejecutivo de Cuenta', 'Vendedor', 'ONF Activa', 'Venc. ONF'],
     measures: [
-      // OJO: esta es la mas importante de confirmar. "Total Pendiente"
-      // en el sheet "Detalle Colchon" casi seguro es una expresion con
-      // set analysis, no un campo plano. Copiar la expresion exacta
-      // desde Qlik antes de correr esto en serio.
-      { label: 'Total Pendiente', expr: 'Sum(Colchon)' },
+      // Confirmado: es la misma medida maestra "Total Pedidos Ptes." que
+      // usa el propio cuadro "Detalle Colchon". OJO: esto es backlog de
+      // produccion/entrega, NO cartera por cobrar. Nota: no divido por
+      // 1000 aca (eso era solo formato de pantalla), guardamos el numero
+      // completo en pesos.
+      { label: 'Total Pendiente', expr: "Sum({<Año,Mes,ClaveFecha,[Estado Pedido] -= {3,5,4,'D'},[A Fabricar] = {'S'}>} #Pedidos)" },
     ],
     outputFile: 'cartera_pendiente.csv',
   },
