@@ -67,7 +67,7 @@ def armar_html(usuario, por_mes, comparacion, top_articulos, top_distribuidores,
     <h3 style="color:#1F4E78;">Top distribuidores</h3>
     <table style="border-collapse:collapse; margin-bottom:20px;">{filas_top_dist}</table>
 
-    <h3 style="color:#1F4E78;">Cartera pendiente</h3>
+    <h3 style="color:#1F4E78;">Pedidos pendientes de fabricar/entregar</h3>
     <p>Total: {_fmt_money(cartera['total'])} — Bloqueado por ONF: {_fmt_money(cartera['bloqueado_onf'])}</p>
     </body></html>'''
 

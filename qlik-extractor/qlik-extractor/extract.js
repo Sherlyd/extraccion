@@ -82,9 +82,15 @@ async function extractOne(app, def) {
 
   console.log(`  "${def.name}": ${totalRows} filas a traer...`);
 
+  // El motor de Qlik limita cada pedido a 10.000 celdas (qHeight x qWidth).
+  // Calculamos cuantas filas entran por pagina segun el ancho real de
+  // esta extraccion, con margen de seguridad.
+  const MAX_CELLS_PER_REQUEST = 9000;
+  const pageSize = Math.max(1, Math.floor(MAX_CELLS_PER_REQUEST / totalCols));
+
   const allRows = [];
-  for (let top = 0; top < totalRows; top += PAGE_SIZE) {
-    const height = Math.min(PAGE_SIZE, totalRows - top);
+  for (let top = 0; top < totalRows; top += pageSize) {
+    const height = Math.min(pageSize, totalRows - top);
     const pages = await obj.getHyperCubeData('/qHyperCubeDef', [
       { qTop: top, qLeft: 0, qHeight: height, qWidth: totalCols },
     ]);
