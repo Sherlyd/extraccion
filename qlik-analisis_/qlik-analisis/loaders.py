@@ -54,20 +54,3 @@ def load_top_distribuidores(path):
     df.rename(columns={fact_col: 'M$ Fact.'}, inplace=True)
 
     return df
-
-
-def load_comparativo_generico(path, nombre_dimension='Dimension'):
-    """Carga cualquiera de los archivos 'Comparativo de Facturacion Generico'
-    (los pivotados por Pais, Provincia, Ejecutivo, Familia, etc). El nombre
-    de la primera columna cambia segun la dimension elegida en Qlik, por eso
-    se renombra a uno fijo para poder tratarlos todos con el mismo codigo."""
-    df = pd.read_excel(path)
-    df = df.rename(columns={df.columns[0]: nombre_dimension})
-    df[nombre_dimension] = df[nombre_dimension].astype(str).str.strip()
-    df = df[df[nombre_dimension] != 'Totales'].copy()
-
-    for col in df.columns[1:]:
-        if col != 'Unidad':
-            df[col] = pd.to_numeric(df[col].astype(str).str.rstrip('%'), errors='coerce')
-
-    return df
