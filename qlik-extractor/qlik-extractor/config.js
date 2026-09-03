@@ -11,12 +11,12 @@ module.exports = {
   // ID de la app. Se obtiene de la URL cuando abris la app
   // en el hub: .../sense/app/XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX/...
   // Dejalo vacio ('') para list-apps.js, que muestra todas las apps disponibles.
-  appId: '',
+  appId: 'ccc7e750-8f3c-42cc-b495-1ec7bca0fd0b',
 
   // Usuario "de servicio" con el que se conecta al motor.
   // Pedir al admin cual usar. Un valor tipico por defecto es:
-  userDirectory: 'INTERNAL',
-  userId: 'sa_api',
+  userDirectory: 'JOHNSON',
+  userId: 'rgonzalez',
 
   // Carpeta donde se va a copiar los 3 archivos que entreguen:
   // client.pem, client_key.pem, root.pem

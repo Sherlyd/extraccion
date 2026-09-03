@@ -25,7 +25,8 @@ const { openApp } = require('./qlik-session');
 const extractions = [
   {
     name: 'ventas_por_producto',
-    dimensions: ['Producto', 'Fecha'],
+    dimensions: ['Fecha de Alta', 'Tipo Comp', 'Distr.', 'Razon Social Distr', 'Razon Social CF',
+             'Artículo', 'Familia1', 'Ejecutivo de Cuenta', 'Suc.'],
     measures: [
       { label: 'TotalVentas', expr: 'Sum(Ventas)' },
       { label: 'CantidadPedidos', expr: 'Count(DISTINCT IdPedido)' },

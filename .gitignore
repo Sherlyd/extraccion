@@ -1,6 +1,7 @@
 node_modules/
 certs/*.pem
 certs/*.pfx
+certs/
 output/*.csv
 .env
 
@@ -12,3 +13,6 @@ qlik-graficos/
 qlik-analisis/output
 qlik-analisis/data
 output/
+193.25.24.85/
+
+pem-qlik.txt

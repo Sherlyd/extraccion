@@ -7,6 +7,8 @@
     "test-connection": "node connect.js",
     "list-apps": "node list-apps.js",
     "list-fields": "node list-fields.js",
+    "list-tables": "node list-tables.js",
+    "list-values": "node list-field-values.js",
     "extract": "node extract.js"
   },
   "dependencies": {
