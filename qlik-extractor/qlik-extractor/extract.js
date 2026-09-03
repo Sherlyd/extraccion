@@ -62,7 +62,6 @@ const extractions = [
   },
 ];
 
-const PAGE_SIZE = 5000;
 
 async function extractOne(app, def) {
   const hypercubeDef = {
