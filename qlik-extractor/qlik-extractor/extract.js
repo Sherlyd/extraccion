@@ -160,9 +160,17 @@ async function main() {
   console.log('Conectado. Iniciando extracciones:\n');
 
   for (const def of extractions) {
+    if (def.filtroDocumento) {
+      await app.field('_Documento').selectValues([{ qText: def.filtroDocumento }], false, true);
+    }
+
     const { rows, headers, numDimensions } = await extractOne(app, def);
     await saveToCsv(def, headers, rows, numDimensions);
     await saveToXlsx(def, headers, rows, numDimensions);
+
+    if (def.filtroDocumento) {
+      await app.clearAll();
+    }
   }
 
   await session.close();
