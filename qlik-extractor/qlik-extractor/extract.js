@@ -18,7 +18,7 @@ const extractions = [
     filtroDocumento: 'Factura',
     dimensions: ['fv0_tipcmp', 'fv0_fecalt', 'fv0_tipfor', 'sucurs', 'fv0_numero', 'client',
                  'Razon Social Distr', 'clv_client', 'Razon Social CF', 'fv1_itemcp', 'articu',
-                 'Familia1', 'Familia4', 'Ejecutivo de Cuenta', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
+                 'Familia1', 'Familia2', 'Familia3', 'Familia4', 'Ejecutivo de Cuenta', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
     measures: [
       { label: 'Cantid', expr: 'Sum(cantid)' },
       { label: 'Importe', expr: 'Sum(#Facturacion)' },

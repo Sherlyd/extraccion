@@ -37,6 +37,10 @@ def init_db():
         conn.execute("ALTER TABLE facturacion ADD COLUMN zona TEXT")
     if 'familia4' not in columnas_fact:
         conn.execute("ALTER TABLE facturacion ADD COLUMN familia4 TEXT")
+    if 'familia2' not in columnas_fact:
+        conn.execute("ALTER TABLE facturacion ADD COLUMN familia2 TEXT")
+    if 'familia3' not in columnas_fact:
+        conn.execute("ALTER TABLE facturacion ADD COLUMN familia3 TEXT")
 
     columnas_ped = [c['name'] for c in conn.execute('PRAGMA table_info(pedidos)').fetchall()]
     if 'centro_distribucion' not in columnas_ped:

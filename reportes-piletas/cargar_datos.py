@@ -49,12 +49,13 @@ def cargar_facturacion(conn):
         conn.execute('''
             INSERT INTO facturacion
                 (fecha, tipo_comp, distribuidor_id, distribuidor_nombre,
-                 cliente_final_nombre, articulo, rubro, familia4, ejecutivo_cuenta,
+                 cliente_final_nombre, articulo, rubro, familia2, familia3, familia4, ejecutivo_cuenta,
                  centro_distribucion, zona, sucursal, cantidad, importe, importe_neto)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ''', (
             _parsear_fecha(r.get('fv0_fecalt')), tipo, r.get('client'), r.get('Razon Social Distr'),
-            r.get('Razon Social CF'), r.get('articu'), r.get('Familia1'), r.get('Familia4'),
+            r.get('Razon Social CF'), r.get('articu'), r.get('Familia1'), r.get('Familia2'),
+            r.get('Familia3'), r.get('Familia4'),
             r.get('Ejecutivo de Cuenta'), r.get('Centro Distribucion'), r.get('Zona Desc Distr'),
             r.get('sucurs'), float(r.get('Cantid', 0) or 0), importe, importe_neto,
         ))
