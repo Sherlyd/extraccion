@@ -11,6 +11,9 @@
     header h1 { font-size: 18px; margin: 0; }
     header a { color: #cfe0f0; text-decoration: none; font-size: 13px; }
     main { padding: 24px 32px; max-width: 1100px; margin: 0 auto; }
+    .migas { font-size: 13px; color: #666; margin-bottom: 16px; }
+    .migas a { color: #1F4E78; text-decoration: none; }
+    .migas .fijo { color: #999; }
     .alertas { background: #FFC7CE; color: #9C0006; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; }
     .kpis { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
     .kpi { background: white; border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
@@ -27,7 +30,10 @@
          border-bottom: 1px solid #eee; padding: 6px 4px; }
     td { padding: 8px 4px; border-bottom: 1px solid #f2f2f2; }
     td.num { text-align: right; }
-    canvas { max-height: 280px; }
+    td a { color: #1F4E78; text-decoration: none; }
+    td a:hover { text-decoration: underline; }
+    canvas { max-height: 260px; }
+    .toggle-anual { font-size: 12px; color: #1F4E78; margin-top: 8px; display: inline-block; }
   </style>
 </head>
 <body>
@@ -41,12 +47,19 @@
   </header>
 
   <main>
+    {% if migas %}
+    <div class="migas">
+      <a href="{{ url_for('dashboard') }}">Todo</a>
+      {% for m in migas %}
+        &raquo; <span class="{{ 'fijo' if m.fijo else '' }}">{{ m.valor }}</span>
+      {% endfor %}
+    </div>
+    {% endif %}
+
     {% if alertas %}
       <div class="alertas">
         <strong>Alertas</strong>
-        <ul>
-          {% for a in alertas %}<li>{{ a }}</li>{% endfor %}
-        </ul>
+        <ul>{% for a in alertas %}<li>{{ a }}</li>{% endfor %}</ul>
       </div>
     {% endif %}
 
@@ -67,10 +80,50 @@
       </div>
     </div>
 
+    {% if siguiente_nivel and opciones_nivel %}
     <div class="panel">
-      <h2>Facturación por mes</h2>
+      <h2>Explorar por {{ siguiente_nivel.replace('_', ' ') }}</h2>
+      <table>
+        <tr><th>{{ siguiente_nivel.replace('_', ' ') }}</th></tr>
+        {% for opcion in opciones_nivel %}
+        <tr><td>
+          <a href="{{ url_for('dashboard', **dict(filtros_drill, **{siguiente_nivel: opcion})) }}">{{ opcion }}</a>
+        </td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <h2>Facturación por mes (vista actual)</h2>
       <canvas id="chartMensual"></canvas>
     </div>
+
+    <div class="panel">
+      <h2>Histórico anual {% if not anio_seleccionado %}(clic en un año para ver el detalle mes a mes vs. el año anterior){% endif %}</h2>
+      <canvas id="chartAnual"></canvas>
+      {% if anio_seleccionado %}
+        <a class="toggle-anual" href="{{ url_for('dashboard', **filtros_drill) }}">« Volver al histórico completo</a>
+      {% endif %}
+    </div>
+
+    {% if comparacion_anual %}
+    <div class="panel">
+      <h2>{{ anio_seleccionado }} vs. {{ anio_seleccionado|int - 1 }}, mes a mes</h2>
+      <table>
+        <tr><th>Mes</th><th style="text-align:right;">{{ anio_seleccionado }}</th>
+            <th style="text-align:right;">{{ anio_seleccionado|int - 1 }}</th><th style="text-align:right;">Variación</th></tr>
+        {% for f in comparacion_anual %}
+        <tr>
+          <td>{{ f.mes }}</td>
+          <td class="num">${{ '{:,.0f}'.format(f.actual).replace(',', '.') }}</td>
+          <td class="num">${{ '{:,.0f}'.format(f.anterior).replace(',', '.') }}</td>
+          <td class="num">{% if f.variacion_pct is not none %}{{ '{:+.1%}'.format(f.variacion_pct) }}{% else %}—{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
 
     <div class="panel">
       <h2>Top artículos</h2>
@@ -91,29 +144,31 @@
         {% endfor %}
       </table>
     </div>
-
-    {% if por_sucursal %}
-    <div class="panel">
-      <h2>Facturación por sucursal (vista general)</h2>
-      <table>
-        <tr><th>Sucursal</th><th style="text-align:right;">Importe</th></tr>
-        {% for nombre, valor in por_sucursal %}
-        <tr><td>{{ nombre }}</td><td class="num">${{ '{:,.0f}'.format(valor).replace(',', '.') }}</td></tr>
-        {% endfor %}
-      </table>
-    </div>
-    {% endif %}
   </main>
 
   <script>
-    const data = {{ chart_data_json | safe }};
+    const dataMensual = {{ chart_data_json | safe }};
     new Chart(document.getElementById('chartMensual'), {
       type: 'bar',
-      data: {
-        labels: data.labels,
-        datasets: [{ label: 'Facturación neta', data: data.valores, backgroundColor: '#1F4E78' }]
-      },
+      data: { labels: dataMensual.labels, datasets: [{ label: 'Facturación neta', data: dataMensual.valores, backgroundColor: '#1F4E78' }] },
       options: { plugins: { legend: { display: false } } }
+    });
+
+    const dataAnual = {{ chart_anual_json | safe }};
+    const chartAnual = new Chart(document.getElementById('chartAnual'), {
+      type: 'bar',
+      data: { labels: dataAnual.labels, datasets: [{ label: 'Facturación anual', data: dataAnual.valores, backgroundColor: '#2c6ba0' }] },
+      options: {
+        plugins: { legend: { display: false } },
+        onClick: (evt, elements) => {
+          if (elements.length > 0) {
+            const anio = dataAnual.labels[elements[0].index];
+            const params = new URLSearchParams(window.location.search);
+            params.set('anio', anio);
+            window.location.search = params.toString();
+          }
+        }
+      }
     });
   </script>
 </body>

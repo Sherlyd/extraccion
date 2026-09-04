@@ -22,9 +22,31 @@ def init_db():
     # Migracion defensiva: si la base ya existia de antes de que
     # agregaramos login con contraseña, sumamos la columna sin perder
     # los usuarios ya cargados.
-    columnas = [c['name'] for c in conn.execute('PRAGMA table_info(usuarios)').fetchall()]
-    if 'password_hash' not in columnas:
+    columnas_usuarios = [c['name'] for c in conn.execute('PRAGMA table_info(usuarios)').fetchall()]
+    if 'password_hash' not in columnas_usuarios:
         conn.execute("ALTER TABLE usuarios ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")
+    if 'centro_distribucion' not in columnas_usuarios:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN centro_distribucion TEXT")
+    if 'zona' not in columnas_usuarios:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN zona TEXT")
+
+    columnas_fact = [c['name'] for c in conn.execute('PRAGMA table_info(facturacion)').fetchall()]
+    if 'centro_distribucion' not in columnas_fact:
+        conn.execute("ALTER TABLE facturacion ADD COLUMN centro_distribucion TEXT")
+    if 'zona' not in columnas_fact:
+        conn.execute("ALTER TABLE facturacion ADD COLUMN zona TEXT")
+
+    columnas_ped = [c['name'] for c in conn.execute('PRAGMA table_info(pedidos)').fetchall()]
+    if 'centro_distribucion' not in columnas_ped:
+        conn.execute("ALTER TABLE pedidos ADD COLUMN centro_distribucion TEXT")
+    if 'zona' not in columnas_ped:
+        conn.execute("ALTER TABLE pedidos ADD COLUMN zona TEXT")
+
+    columnas_cart = [c['name'] for c in conn.execute('PRAGMA table_info(cartera_pendiente)').fetchall()]
+    if 'centro_distribucion' not in columnas_cart:
+        conn.execute("ALTER TABLE cartera_pendiente ADD COLUMN centro_distribucion TEXT")
+    if 'zona' not in columnas_cart:
+        conn.execute("ALTER TABLE cartera_pendiente ADD COLUMN zona TEXT")
 
     conn.commit()
     conn.close()

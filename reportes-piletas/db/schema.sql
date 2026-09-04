@@ -16,15 +16,19 @@ CREATE TABLE IF NOT EXISTS facturacion (
     articulo TEXT,
     rubro TEXT,                       -- Familia1 de Qlik (Piletas, Mesada, Mueblería, ...)
     ejecutivo_cuenta TEXT,            -- vendedor
-    sucursal TEXT,
+    centro_distribucion TEXT,         -- nivel macro (ej: Parana, Buenos Aires)
+    zona TEXT,                        -- nivel intermedio dentro de un centro
+    sucursal TEXT,                    -- nivel micro
     cantidad REAL,
     importe REAL,
-    importe_neto REAL,                -- NC ya restada
+    importe_neto REAL,                -- ya viene neto de NC desde #Facturacion
     cargado_en TEXT DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_fact_fecha ON facturacion(fecha);
 CREATE INDEX IF NOT EXISTS idx_fact_rubro ON facturacion(rubro);
 CREATE INDEX IF NOT EXISTS idx_fact_ejecutivo ON facturacion(ejecutivo_cuenta);
+CREATE INDEX IF NOT EXISTS idx_fact_centro ON facturacion(centro_distribucion);
+CREATE INDEX IF NOT EXISTS idx_fact_zona ON facturacion(zona);
 CREATE INDEX IF NOT EXISTS idx_fact_sucursal ON facturacion(sucursal);
 
 CREATE TABLE IF NOT EXISTS pedidos (
@@ -34,6 +38,8 @@ CREATE TABLE IF NOT EXISTS pedidos (
     articulo TEXT,
     rubro TEXT,
     ejecutivo_cuenta TEXT,
+    centro_distribucion TEXT,
+    zona TEXT,
     sucursal TEXT,
     cantidad REAL,
     cargado_en TEXT DEFAULT (datetime('now'))
@@ -48,6 +54,8 @@ CREATE TABLE IF NOT EXISTS cartera_pendiente (
     onf_activa TEXT,
     rubro TEXT,
     ejecutivo_cuenta TEXT,
+    centro_distribucion TEXT,
+    zona TEXT,
     sucursal TEXT,
     total_pendiente REAL,
     cargado_en TEXT DEFAULT (datetime('now'))
@@ -64,7 +72,9 @@ CREATE TABLE IF NOT EXISTS usuarios (
     email TEXT NOT NULL UNIQUE,
     password_hash TEXT NOT NULL,
     rol TEXT NOT NULL,                -- gerente_general | gerente_sucursal | vendedor
-    sucursal TEXT,                    -- NULL = todas
+    centro_distribucion TEXT,         -- NULL = todos los centros (ej: Gerente General)
+    zona TEXT,                        -- NULL = todas las zonas de su centro
+    sucursal TEXT,                    -- NULL = todas las sucursales de su zona
     rubro TEXT,                       -- NULL = todos
     ejecutivo_cuenta TEXT,            -- NULL = todos (solo aplica a rol vendedor)
     activo INTEGER DEFAULT 1
@@ -86,6 +96,6 @@ CREATE TABLE IF NOT EXISTS log_extracciones (
     ejecutado_en TEXT DEFAULT (datetime('now')),
     archivo TEXT,
     filas_cargadas INTEGER,
-    estado TEXT,                      
+    estado TEXT,                      -- ok | error
     detalle TEXT
 );

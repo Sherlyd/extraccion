@@ -1,7 +1,6 @@
 // extract.js
 // Extrae datos de una app de Qlik armando un hypercube (dimensiones +
-// medidas) y los guarda en CSV y en Excel (.xlsx). Este es el script
-// que despues se automatiza (Task Scheduler) para correr periodicamente.
+// medidas) y los guarda en CSV y en Excel (.xlsx).
 //
 // Uso: npm run extract
 
@@ -18,7 +17,7 @@ const extractions = [
     name: 'facturacion',
     dimensions: ['fv0_tipcmp', 'fv0_fecalt', 'fv0_tipfor', 'sucurs', 'fv0_numero', 'client',
                  'Razon Social Distr', 'clv_client', 'Razon Social CF', 'fv1_itemcp', 'articu',
-                 'Familia1', 'Ejecutivo de Cuenta', '_Documento'],
+                 'Familia1', 'Ejecutivo de Cuenta', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
     measures: [
       { label: 'Cantid', expr: 'Sum(cantid)' },
       { label: 'Importe', expr: 'Sum(#Facturacion)' },
@@ -28,7 +27,8 @@ const extractions = [
   {
     name: 'pedidos',
     dimensions: ['numero', 'Tipo Pedido', 'client', 'Razon Social Distr', 'clv_client',
-                 'Razon Social CF', 'pe1_itempe', 'articu', 'Familia1', 'Ejecutivo de Cuenta', '_Documento'],
+                 'Razon Social CF', 'pe1_itempe', 'articu', 'Familia1', 'Ejecutivo de Cuenta',
+                 'sucurs', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
     measures: [
       { label: 'Cantid', expr: 'Sum(cantid)' },
       { label: 'Importe', expr: 'Sum(#Pedidos)' },
@@ -38,7 +38,8 @@ const extractions = [
   {
     name: 'cartera',
     dimensions: ['MesAño', 'pe1_numero', 'estado', 'Razon Social Distr', 'Razon Social CF',
-                 'cls_sucurs', 'Ejecutivo de Cuenta', 'Vendedor', 'ONF Activa', 'Venc. ONF'],
+                 'cls_sucurs', 'Ejecutivo de Cuenta', 'Vendedor', 'ONF Activa', 'Venc. ONF',
+                 'Familia1', 'Centro Distribucion', 'Zona Desc Distr'],
     measures: [
       { label: 'Total Pendiente', expr: "Sum({<Año,Mes,ClaveFecha,[Estado Pedido] -= {3,5,4,'D'},[A Fabricar] = {'S'}>} #Pedidos)" },
     ],
@@ -71,7 +72,7 @@ async function extractOne(app, def) {
 
   const pedidas = def.dimensions.length + def.measures.length;
   if (totalCols !== pedidas) {
-    console.warn(`  AVISO: pediste ${pedidas} columnas (${[...def.dimensions, ...def.measures.map(m => m.label)].join(', ')}) pero Qlik devolvio ${totalCols}.`);
+    console.warn(`  AVISO: pediste ${pedidas} columnas pero Qlik devolvio ${totalCols}.`);
   }
 
   console.log(`  "${def.name}": ${totalRows} filas a traer... (${totalCols} columnas reales)`);
@@ -91,17 +92,11 @@ async function extractOne(app, def) {
   return { rows: allRows, headers, numDimensions: dimHeaders.length };
 }
 
-// Convierte cada celda cruda de Qlik al valor final que va al archivo,
-// aplicando la misma regla dimension-vs-medida en los dos formatos de
-// salida (CSV y Excel), para que nunca queden desincronizados entre si.
 function celdaAValor(cell, esDimension) {
   if (!cell) return '';
   if (esDimension) {
-    // Dimensiones: texto/fecha formateada. Prioriza qText -- esto es lo
-    // que evita el bug de fechas mostrando el numero serial de Qlik.
     return cell.qText !== undefined ? cell.qText : cell.qNum;
   }
-  // Medidas: numerico. Prioriza qNum.
   return (cell.qNum !== undefined && cell.qNum !== 'NaN') ? cell.qNum : cell.qText;
 }
 
@@ -110,7 +105,6 @@ async function saveToCsv(def, headers, rows, numDimensions) {
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
   const csvHeaders = headers.map((h) => ({ id: h, title: h }));
-
   const csvWriter = createObjectCsvWriter({
     path: path.join(outDir, def.outputFile),
     header: csvHeaders,
@@ -133,9 +127,8 @@ async function saveToXlsx(def, headers, rows, numDimensions) {
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
   const xlsxFile = def.outputFile.replace(/\.csv$/i, '.xlsx');
-
   const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(def.name.slice(0, 31)); // Excel limita a 31 caracteres el nombre de hoja
+  const sheet = workbook.addWorksheet(def.name.slice(0, 31));
 
   sheet.columns = headers.map((h) => ({ header: h, key: h, width: Math.max(12, h.length + 2) }));
   sheet.getRow(1).font = { bold: true };
@@ -154,7 +147,7 @@ async function saveToXlsx(def, headers, rows, numDimensions) {
 
 async function main() {
   if (!config.appId) {
-    console.error('Falta definir "appId" en config.js. Corre primero "npm run list-apps".');
+    console.error('Falta definir "appId" en config.js.');
     process.exit(1);
   }
 

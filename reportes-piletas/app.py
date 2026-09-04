@@ -1,9 +1,8 @@
 # app.py
-# Dashboard web minimo para visualizar el avance en vivo. Por ahora
-# soporta 2 roles: gerente_general (ve todo) y gerente_sucursal (ve su
-# sucursal + rubro). El "login" es solo elegir el usuario de una lista
-# -- es un standin temporal, NO es autenticacion real. Reemplazar por
-# un login de verdad antes de exponer esto fuera de tu compu.
+# Dashboard web con navegacion "macro a micro":
+#   - Geografia: Centro Distribucion -> Zona -> Sucursal (drill-down
+#     por clic, respetando siempre el limite que impone el rol).
+#   - Tiempo: historico anual -> un año puntual vs. el año anterior.
 #
 # Uso: python app.py
 # Despues abrir http://localhost:5000 en el navegador.
@@ -11,13 +10,14 @@
 from flask import Flask, render_template, redirect, url_for, request, session, send_file
 from werkzeug.security import check_password_hash
 from db import get_connection
-from roles import clausula_where
+from roles import clausula_where, niveles_navegables, CAMPOS_JERARQUIA
 import metricas
 from generar_informe import generar_informe_excel
 import json
+import os
 
 app = Flask(__name__)
-app.secret_key = 'cambiar-esto-antes-de-produccion'
+app.secret_key = os.environ.get('DASHBOARD_SECRET_KEY', 'clave-de-desarrollo-cambiar-en-produccion')
 
 
 @app.route('/')
@@ -54,10 +54,39 @@ def logout():
     return redirect(url_for('login'))
 
 
-def _calcular_datos_dashboard(usuario, conn):
-    """Calcula todo lo que necesita el dashboard (y el informe
-    descargable) para un usuario dado, ya filtrado por su rol."""
-    where, params = clausula_where(usuario)
+def _usuario_actual(conn):
+    if 'usuario_id' not in session:
+        return None
+    return conn.execute('SELECT * FROM usuarios WHERE id = ?', (session['usuario_id'],)).fetchone()
+
+
+def _leer_filtros_drill(usuario):
+    """Lee de la URL (?centro=...&zona=...&sucursal=...) solo los
+    niveles que el rol de este usuario permite explorar. Si el rol ya
+    fija un nivel, cualquier valor que venga en la URL para ese nivel
+    se ignora -- ver roles.clausula_where."""
+    return {campo: request.args.get(campo) for campo in CAMPOS_JERARQUIA if request.args.get(campo)}
+
+
+def _opciones_siguiente_nivel(conn, usuario, filtros_drill, where, params):
+    """Para el nivel de jerarquia que sigue abierto (el primero que el
+    rol no fija y que el usuario todavia no eligio), arma la lista de
+    valores distintos disponibles para navegar -- son los links de
+    drill-down que se muestran en el dashboard."""
+    libres = niveles_navegables(usuario)
+    siguiente = next((c for c in libres if c not in filtros_drill), None)
+    if not siguiente:
+        return None, None
+
+    filas = conn.execute(
+        f'SELECT DISTINCT {siguiente} as valor FROM facturacion WHERE {where} AND {siguiente} IS NOT NULL ORDER BY 1',
+        params,
+    ).fetchall()
+    return siguiente, [f['valor'] for f in filas]
+
+
+def _calcular_datos_dashboard(usuario, conn, filtros_drill, anio_seleccionado=None):
+    where, params = clausula_where(usuario, filtros_drill=filtros_drill)
 
     filas_fact = conn.execute(f'SELECT * FROM facturacion WHERE {where}', params).fetchall()
     filas_cartera = conn.execute(f'SELECT * FROM cartera_pendiente WHERE {where}', params).fetchall()
@@ -69,85 +98,86 @@ def _calcular_datos_dashboard(usuario, conn):
     cartera = metricas.cartera_pendiente_resumen(filas_cartera)
     alertas = metricas.detectar_alertas(comparacion, 0.15)
 
-    por_sucursal = None
-    if usuario['rol'] == 'gerente_general':
-        rows = conn.execute('''
-            SELECT sucursal, SUM(importe_neto) as total
-            FROM facturacion
-            GROUP BY sucursal
-            ORDER BY total DESC
-        ''').fetchall()
-        por_sucursal = [(r['sucursal'] or '(sin dato)', r['total'] or 0) for r in rows]
+    por_anio = metricas.facturacion_por_anio(filas_fact)
+    comparacion_anual = None
+    if anio_seleccionado:
+        comparacion_anual = metricas.anio_vs_anterior(filas_fact, anio_seleccionado)
+
+    siguiente_nivel, opciones_nivel = _opciones_siguiente_nivel(conn, usuario, filtros_drill, where, params)
 
     return {
-        'por_mes': por_mes,
-        'comparacion': comparacion,
-        'top_articulos': top_articulos,
-        'top_distribuidores': top_distribuidores,
-        'cartera': cartera,
-        'alertas': alertas,
-        'por_sucursal': por_sucursal,
+        'por_mes': por_mes, 'comparacion': comparacion,
+        'top_articulos': top_articulos, 'top_distribuidores': top_distribuidores,
+        'cartera': cartera, 'alertas': alertas,
+        'por_anio': por_anio, 'comparacion_anual': comparacion_anual,
+        'siguiente_nivel': siguiente_nivel, 'opciones_nivel': opciones_nivel,
     }
 
 
 @app.route('/dashboard')
 def dashboard():
-    if 'usuario_id' not in session:
-        return redirect(url_for('login'))
-
     conn = get_connection()
-    usuario = conn.execute('SELECT * FROM usuarios WHERE id = ?', (session['usuario_id'],)).fetchone()
+    usuario = _usuario_actual(conn)
     if not usuario:
-        session.clear()
         conn.close()
         return redirect(url_for('login'))
 
-    datos = _calcular_datos_dashboard(usuario, conn)
+    filtros_drill = _leer_filtros_drill(usuario)
+    anio_seleccionado = request.args.get('anio')
+
+    datos = _calcular_datos_dashboard(usuario, conn, filtros_drill, anio_seleccionado)
     conn.close()
 
-    chart_data = {
-        'labels': list(datos['por_mes'].keys()),
-        'valores': list(datos['por_mes'].values()),
-    }
+    chart_data = {'labels': list(datos['por_mes'].keys()), 'valores': list(datos['por_mes'].values())}
+    chart_anual = {'labels': list(datos['por_anio'].keys()), 'valores': list(datos['por_anio'].values())}
+
+    # Migas de pan: nivel de rol (fijo, sin link) + niveles elegidos por drill-down (con link para volver)
+    migas = []
+    for campo in CAMPOS_JERARQUIA:
+        if usuario[campo]:
+            migas.append({'campo': campo, 'valor': usuario[campo], 'fijo': True})
+        elif campo in filtros_drill:
+            migas.append({'campo': campo, 'valor': filtros_drill[campo], 'fijo': False})
 
     return render_template(
         'dashboard.html',
         usuario=usuario,
+        migas=migas,
+        filtros_drill=filtros_drill,
+        siguiente_nivel=datos['siguiente_nivel'],
+        opciones_nivel=datos['opciones_nivel'],
         comparacion=datos['comparacion'],
         top_articulos=datos['top_articulos'],
         top_distribuidores=datos['top_distribuidores'],
         cartera=datos['cartera'],
         alertas=datos['alertas'],
-        por_sucursal=datos['por_sucursal'],
         chart_data_json=json.dumps(chart_data),
+        chart_anual_json=json.dumps(chart_anual),
+        anio_seleccionado=anio_seleccionado,
+        comparacion_anual=datos['comparacion_anual'],
     )
 
 
 @app.route('/dashboard/descargar')
 def descargar_informe():
-    if 'usuario_id' not in session:
-        return redirect(url_for('login'))
-
     conn = get_connection()
-    usuario = conn.execute('SELECT * FROM usuarios WHERE id = ?', (session['usuario_id'],)).fetchone()
+    usuario = _usuario_actual(conn)
     if not usuario:
-        session.clear()
         conn.close()
         return redirect(url_for('login'))
 
-    datos = _calcular_datos_dashboard(usuario, conn)
+    filtros_drill = _leer_filtros_drill(usuario)
+    datos = _calcular_datos_dashboard(usuario, conn, filtros_drill)
     conn.close()
 
     buffer = generar_informe_excel(
         usuario, datos['por_mes'], datos['comparacion'], datos['top_articulos'],
-        datos['top_distribuidores'], datos['cartera'], datos['alertas'], datos['por_sucursal'],
+        datos['top_distribuidores'], datos['cartera'], datos['alertas'], None,
     )
 
     nombre_archivo = f"informe_piletas_{usuario['nombre'].replace(' ', '_')}.xlsx"
     return send_file(
-        buffer,
-        as_attachment=True,
-        download_name=nombre_archivo,
+        buffer, as_attachment=True, download_name=nombre_archivo,
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     )
 

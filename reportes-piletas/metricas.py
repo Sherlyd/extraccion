@@ -74,3 +74,54 @@ def cartera_pendiente_resumen(filas_cartera):
     total = sum(f['total_pendiente'] or 0 for f in filas_cartera)
     bloqueado_onf = sum(f['total_pendiente'] or 0 for f in filas_cartera if f['onf_activa'] == 'SÍ')
     return {'total': total, 'bloqueado_onf': bloqueado_onf}
+
+
+def facturacion_por_anio(filas_facturacion):
+    """Vista MACRO: total facturado por año. Punto de entrada del
+    drill-down temporal -- de aca se navega hacia un año puntual."""
+    por_anio = defaultdict(float)
+    for f in filas_facturacion:
+        anio = f['fecha'][:4]
+        por_anio[anio] += f['importe_neto'] or 0
+    return dict(sorted(por_anio.items()))
+
+
+def anio_vs_anterior(filas_facturacion, anio):
+    """Vista MICRO: facturacion mes a mes de 'anio' comparada contra el
+    mismo mes del año anterior. Se llega aca haciendo drill-down desde
+    facturacion_por_anio()."""
+    anio = str(anio)
+    anio_anterior = str(int(anio) - 1)
+
+    actual = defaultdict(float)
+    anterior = defaultdict(float)
+    for f in filas_facturacion:
+        a, m = f['fecha'][:4], f['fecha'][5:7]
+        if a == anio:
+            actual[m] += f['importe_neto'] or 0
+        elif a == anio_anterior:
+            anterior[m] += f['importe_neto'] or 0
+
+    meses = [f'{i:02d}' for i in range(1, 13)]
+    filas = []
+    for m in meses:
+        v_actual = actual.get(m, 0)
+        v_anterior = anterior.get(m)
+        variacion = ((v_actual - v_anterior) / v_anterior) if v_anterior else None
+        filas.append({
+            'mes': m, 'actual': v_actual, 'anterior': v_anterior or 0, 'variacion_pct': variacion,
+        })
+    return filas
+
+
+def facturacion_por_dimension(filas_facturacion, campo, n=None):
+    """Generico: agrupa facturacion por cualquier campo de jerarquia
+    (centro_distribucion, zona, sucursal). Es el mismo patron de
+    macro-a-micro que facturacion_por_anio, aplicado a geografia en vez
+    de tiempo -- se usa para armar cada escalon del drill-down."""
+    acumulado = defaultdict(float)
+    for f in filas_facturacion:
+        clave = f[campo] or '(sin dato)'
+        acumulado[clave] += f['importe_neto'] or 0
+    resultado = sorted(acumulado.items(), key=lambda x: x[1], reverse=True)
+    return resultado[:n] if n else resultado
