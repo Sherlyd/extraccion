@@ -15,6 +15,7 @@ const { openApp } = require('./qlik-session');
 const extractions = [
   {
     name: 'facturacion',
+    filtroDocumento: 'Factura',
     dimensions: ['fv0_tipcmp', 'fv0_fecalt', 'fv0_tipfor', 'sucurs', 'fv0_numero', 'client',
                  'Razon Social Distr', 'clv_client', 'Razon Social CF', 'fv1_itemcp', 'articu',
                  'Familia1', 'Ejecutivo de Cuenta', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
@@ -26,6 +27,7 @@ const extractions = [
   },
   {
     name: 'pedidos',
+    filtroDocumento: 'Pedido',
     dimensions: ['numero', 'Tipo Pedido', 'client', 'Razon Social Distr', 'clv_client',
                  'Razon Social CF', 'pe1_itempe', 'articu', 'Familia1', 'Ejecutivo de Cuenta',
                  'sucurs', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
