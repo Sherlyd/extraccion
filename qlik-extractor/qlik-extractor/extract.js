@@ -53,6 +53,8 @@ async function extractOne(app, def) {
     qDimensions: def.dimensions.map((f) => ({ qDef: { qFieldDefs: [f] } })),
     qMeasures: def.measures.map((m) => ({ qDef: { qDef: m.expr, qLabel: m.label } })),
     qInitialDataFetch: [{ qTop: 0, qLeft: 0, qHeight: 0, qWidth: def.dimensions.length + def.measures.length }],
+    qSuppressMissing: false,
+    qSuppressZero: false,
   };
 
   const obj = await app.createSessionObject({
@@ -127,8 +129,9 @@ async function saveToXlsx(def, headers, rows, numDimensions) {
   if (!fs.existsSync(outDir)) fs.mkdirSync(outDir, { recursive: true });
 
   const xlsxFile = def.outputFile.replace(/\.csv$/i, '.xlsx');
-  const workbook = new ExcelJS.Workbook();
-  const sheet = workbook.addWorksheet(def.name.slice(0, 31));
+  const filePath = path.join(outDir, xlsxFile);
+  const workbookWriter = new ExcelJS.stream.xlsx.WorkbookWriter({ filename: filePath, useStyles: true });
+  const sheet = workbookWriter.addWorksheet(def.name.slice(0, 31));
 
   sheet.columns = headers.map((h) => ({ header: h, key: h, width: Math.max(12, h.length + 2) }));
   sheet.getRow(1).font = { bold: true };
@@ -138,10 +141,11 @@ async function saveToXlsx(def, headers, rows, numDimensions) {
     headers.forEach((h, i) => {
       record[h] = celdaAValor(row[i], i < numDimensions);
     });
-    sheet.addRow(record);
+    sheet.addRow(record).commit();
   });
 
-  await workbook.xlsx.writeFile(path.join(outDir, xlsxFile));
+  sheet.commit();
+  await workbookWriter.commit();
   console.log(`  Guardado en: output/${xlsxFile} (${rows.length} filas)`);
 }
 
