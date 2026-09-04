@@ -11,7 +11,7 @@ CARTERA_CSV = 'cartera_pendiente.csv'
 # Rubro con el que arrancamos (los valores exactos que usa Qlik en el
 # campo Familia1/rubro para identificar Piletas -- confirmar con
 # list-fields / los valores reales que aparezcan al cargar datos).
-RUBROS_ACTIVOS = ['VENTA PILETAS']  # valor real del campo Familia1 en Qlik
+RUBROS_ACTIVOS = ['VENTA PILETAS']  # valor real confirmado del campo Familia1 en Qlik
 
 # --- SMTP para el mail diario ---
 SMTP_HOST = 'smtp.office365.com'   # ajustar segun el proveedor de correo de la empresa

@@ -1,0 +1,27 @@
+extraccion/                               
+│
+├── qlik-extractor/          → SE CONECTA A LA API DE QLIK (Node.js)
+│   ├── config.js               [OK] host, usuario, appId configurados
+│   ├── qlik-session.js         [OK] maneja la conexion/certificados
+│   ├── extract.js              [ARREGLANDO HOY] las 3 extracciones reales
+│   ├── connect.js               [OK] prueba de conexion
+│   ├── list-apps.js, list-fields.js, list-tables.js, list-sheets.js,
+│   │   get-sheet-objects.js, list-master-measures.js, list-variables.js,
+│   │   list-field-values.js    [OK] herramientas de exploracion (ya cumplieron su rol)
+│   ├── certs/                  (nunca se sube a git)
+│   ├── output/                 CSV + XLSX generados (tampoco se sube)
+│   └── package.json
+│
+└── reportes-piletas/        -> BASE PROPIA + ROLES + DASHBOARD + MAIL (Python)
+    ├── config.py                [OK]
+    ├── db.py, db/schema.sql     [OK]
+    ├── cargar_datos.py          [ARREGLANDO HOY] mapeo a campos reales
+    ├── roles.py                 [OK] motor de reglas por rol
+    ├── metricas.py              [OK] KPIs, comparaciones, alertas
+    ├── email_informe.py         [OK] arma y manda el mail diario
+    ├── generar_informe.py       [NUEVO] arma el Excel descargable
+    ├── app.py                   [OK, probado] dashboard web (Flask)
+    ├── templates/               [OK] login.html, dashboard.html
+    ├── run_diario.py            [OK] orquesta carga + mail
+    ├── requirements.txt         [NUEVO]
+    └── db/, data/, logs/        (no se suben a git, son datos generados)

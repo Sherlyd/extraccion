@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Dashboard Piletas — {{ usuario['nombre'] }}</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; color: #333; }
+    header { background: #1F4E78; color: white; padding: 16px 32px; display: flex;
+              justify-content: space-between; align-items: center; }
+    header h1 { font-size: 18px; margin: 0; }
+    header a { color: #cfe0f0; text-decoration: none; font-size: 13px; }
+    main { padding: 24px 32px; max-width: 1100px; margin: 0 auto; }
+    .alertas { background: #FFC7CE; color: #9C0006; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; }
+    .kpis { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
+    .kpi { background: white; border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
+           flex: 1; min-width: 220px; }
+    .kpi .label { font-size: 12px; color: #888; text-transform: uppercase; }
+    .kpi .valor { font-size: 26px; font-weight: bold; color: #1F4E78; margin: 4px 0; }
+    .kpi .variacion.positiva { color: #1a7d3b; }
+    .kpi .variacion.negativa { color: #b3261e; }
+    .panel { background: white; border-radius: 10px; padding: 20px; margin-bottom: 24px;
+             box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
+    .panel h2 { font-size: 15px; color: #1F4E78; margin-top: 0; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; color: #888; font-weight: normal; font-size: 12px; text-transform: uppercase;
+         border-bottom: 1px solid #eee; padding: 6px 4px; }
+    td { padding: 8px 4px; border-bottom: 1px solid #f2f2f2; }
+    td.num { text-align: right; }
+    canvas { max-height: 280px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Piletas — {{ usuario['nombre'] }} ({{ usuario['rol'] }})</h1>
+    <div>
+      <a href="{{ url_for('descargar_informe') }}" style="color:white; background:#2c6ba0; padding:8px 14px;
+         border-radius:6px; text-decoration:none; font-size:13px; margin-right:12px;">Descargar informe (Excel)</a>
+      <a href="{{ url_for('logout') }}">Cambiar usuario</a>
+    </div>
+  </header>
+
+  <main>
+    {% if alertas %}
+      <div class="alertas">
+        <strong>Alertas</strong>
+        <ul>
+          {% for a in alertas %}<li>{{ a }}</li>{% endfor %}
+        </ul>
+      </div>
+    {% endif %}
+
+    <div class="kpis">
+      {% if comparacion %}
+      <div class="kpi">
+        <div class="label">Facturación {{ comparacion['mes_actual'] }}</div>
+        <div class="valor">${{ '{:,.0f}'.format(comparacion['valor_actual']).replace(',', '.') }}</div>
+        <div class="variacion {{ 'positiva' if comparacion['variacion_pct'] >= 0 else 'negativa' }}">
+          {{ '{:+.1%}'.format(comparacion['variacion_pct']) }} vs. promedio histórico
+        </div>
+      </div>
+      {% endif %}
+      <div class="kpi">
+        <div class="label">Pendiente de fabricar/entregar</div>
+        <div class="valor">${{ '{:,.0f}'.format(cartera['total']).replace(',', '.') }}</div>
+        <div class="variacion">Bloqueado ONF: ${{ '{:,.0f}'.format(cartera['bloqueado_onf']).replace(',', '.') }}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Facturación por mes</h2>
+      <canvas id="chartMensual"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Top artículos</h2>
+      <table>
+        <tr><th>Artículo</th><th style="text-align:right;">Importe</th></tr>
+        {% for nombre, valor in top_articulos %}
+        <tr><td>{{ nombre }}</td><td class="num">${{ '{:,.0f}'.format(valor).replace(',', '.') }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="panel">
+      <h2>Top distribuidores</h2>
+      <table>
+        <tr><th>Distribuidor</th><th style="text-align:right;">Importe</th></tr>
+        {% for nombre, valor in top_distribuidores %}
+        <tr><td>{{ nombre }}</td><td class="num">${{ '{:,.0f}'.format(valor).replace(',', '.') }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    {% if por_sucursal %}
+    <div class="panel">
+      <h2>Facturación por sucursal (vista general)</h2>
+      <table>
+        <tr><th>Sucursal</th><th style="text-align:right;">Importe</th></tr>
+        {% for nombre, valor in por_sucursal %}
+        <tr><td>{{ nombre }}</td><td class="num">${{ '{:,.0f}'.format(valor).replace(',', '.') }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% endif %}
+  </main>
+
+  <script>
+    const data = {{ chart_data_json | safe }};
+    new Chart(document.getElementById('chartMensual'), {
+      type: 'bar',
+      data: {
+        labels: data.labels,
+        datasets: [{ label: 'Facturación neta', data: data.valores, backgroundColor: '#1F4E78' }]
+      },
+      options: { plugins: { legend: { display: false } } }
+    });
+  </script>
+</body>
+</html>

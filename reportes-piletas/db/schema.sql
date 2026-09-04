@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     nombre TEXT NOT NULL,
     email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
     rol TEXT NOT NULL,                -- gerente_general | gerente_sucursal | vendedor
     sucursal TEXT,                    -- NULL = todas
     rubro TEXT,                       -- NULL = todos
@@ -85,6 +86,6 @@ CREATE TABLE IF NOT EXISTS log_extracciones (
     ejecutado_en TEXT DEFAULT (datetime('now')),
     archivo TEXT,
     filas_cargadas INTEGER,
-    estado TEXT,                      -- ok | error
+    estado TEXT,                      
     detalle TEXT
 );

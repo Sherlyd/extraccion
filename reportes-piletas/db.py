@@ -18,6 +18,14 @@ def init_db():
     conn = get_connection()
     with open('./db/schema.sql', encoding='utf-8') as f:
         conn.executescript(f.read())
+
+    # Migracion defensiva: si la base ya existia de antes de que
+    # agregaramos login con contraseña, sumamos la columna sin perder
+    # los usuarios ya cargados.
+    columnas = [c['name'] for c in conn.execute('PRAGMA table_info(usuarios)').fetchall()]
+    if 'password_hash' not in columnas:
+        conn.execute("ALTER TABLE usuarios ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")
+
     conn.commit()
     conn.close()
 
