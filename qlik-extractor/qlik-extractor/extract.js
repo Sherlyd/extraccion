@@ -18,7 +18,7 @@ const extractions = [
     filtroDocumento: 'Factura',
     dimensions: ['fv0_tipcmp', 'fv0_fecalt', 'fv0_tipfor', 'sucurs', 'fv0_numero', 'client',
                  'Razon Social Distr', 'clv_client', 'Razon Social CF', 'fv1_itemcp', 'articu',
-                 'Familia1', 'Ejecutivo de Cuenta', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
+                 'Familia1', 'Familia4', 'Ejecutivo de Cuenta', 'Centro Distribucion', 'Zona Desc Distr', '_Documento'],
     measures: [
       { label: 'Cantid', expr: 'Sum(cantid)' },
       { label: 'Importe', expr: 'Sum(#Facturacion)' },
@@ -87,10 +87,25 @@ async function extractOne(app, def) {
   const allRows = [];
   for (let top = 0; top < totalRows; top += pageSize) {
     const height = Math.min(pageSize, totalRows - top);
-    const pages = await obj.getHyperCubeData('/qHyperCubeDef', [
-      { qTop: top, qLeft: 0, qHeight: height, qWidth: totalCols },
-    ]);
-    pages[0].qMatrix.forEach((row) => allRows.push(row));
+    // Reintento cada pagina individual unas veces antes de rendirme --
+    // ayuda con baches cortos de red sin tener que reconectar todo.
+    let pagina;
+    let ultimoError;
+    for (let intento = 1; intento <= 3; intento++) {
+      try {
+        pagina = await obj.getHyperCubeData('/qHyperCubeDef', [
+          { qTop: top, qLeft: 0, qHeight: height, qWidth: totalCols },
+        ]);
+        ultimoError = null;
+        break;
+      } catch (err) {
+        ultimoError = err;
+        console.warn(`    Pagina en fila ${top}: intento ${intento} fallo (${err.message}), reintentando...`);
+        await new Promise((r) => setTimeout(r, 1500 * intento));
+      }
+    }
+    if (ultimoError) throw ultimoError;
+    pagina[0].qMatrix.forEach((row) => allRows.push(row));
   }
 
   return { rows: allRows, headers, numDimensions: dimHeaders.length };
@@ -151,36 +166,67 @@ async function saveToXlsx(def, headers, rows, numDimensions) {
   console.log(`  Guardado en: output/${xlsxFile} (${rows.length} filas)`);
 }
 
+// Corre UNA extraccion completa (conexion propia, de punta a punta). Si
+// algo falla a mitad de camino -- por ejemplo la sesion se cae, como en
+// "Request aborted" -- se cierra esa conexion y se abre una nueva desde
+// cero para reintentar, en vez de perder tambien las extracciones que
+// ya habian salido bien antes.
+async function extraerConReintentos(def, intentosMax = 3) {
+  for (let intento = 1; intento <= intentosMax; intento++) {
+    let session;
+    try {
+      const conectado = await openApp(config.appId);
+      session = conectado.session;
+      const app = conectado.app;
+
+      if (def.filtroDocumento) {
+        const campoDocumento = await app.getField('_Documento');
+        await campoDocumento.selectValues([{ qText: def.filtroDocumento }], false, true);
+      }
+
+      const { rows, headers, numDimensions } = await extractOne(app, def);
+      await saveToCsv(def, headers, rows, numDimensions);
+
+      try {
+        await saveToXlsx(def, headers, rows, numDimensions);
+      } catch (err) {
+        console.warn(`  AVISO: no se pudo generar el Excel de "${def.name}" (probablemente esta abierto en otro programa). El CSV se genero bien y es el que usa el resto del proceso. Detalle: ${err.message}`);
+      }
+
+      if (def.filtroDocumento) {
+        await app.clearAll();
+      }
+
+      await session.close();
+      return; // exito, no hace falta reintentar
+    } catch (err) {
+      console.warn(`  "${def.name}": intento ${intento}/${intentosMax} fallo (${err.message}).`);
+      if (session) {
+        try { await session.close(); } catch (e) { /* ya estaba caida, ignorar */ }
+      }
+      if (intento === intentosMax) throw err;
+      await new Promise((r) => setTimeout(r, 3000 * intento));
+    }
+  }
+}
+
 async function main() {
   if (!config.appId) {
     console.error('Falta definir "appId" en config.js.');
     process.exit(1);
   }
 
-  console.log('Conectando a la app...');
-  const { session, app } = await openApp(config.appId);
-  console.log('Conectado. Iniciando extracciones:\n');
+  console.log('Iniciando extracciones:\n');
 
   for (const def of extractions) {
-    if (def.filtroDocumento) {
-      const campoDocumento = await app.getField('_Documento');
-      await campoDocumento.selectValues([{ qText: def.filtroDocumento }], false, true);
-    }
-
-    const { rows, headers, numDimensions } = await extractOne(app, def);
-    await saveToCsv(def, headers, rows, numDimensions);
-    await saveToXlsx(def, headers, rows, numDimensions);
-
-    if (def.filtroDocumento) {
-      await app.clearAll();
-    }
+    console.log(`--- Procesando "${def.name}" ---`);
+    await extraerConReintentos(def);
   }
 
-  await session.close();
   console.log('\nListo.');
 }
 
 main().catch((err) => {
-  console.error('Error durante la extraccion:', err.message || err);
+  console.error('Error durante la extraccion (ya se agotaron los reintentos):', err.message || err);
   process.exit(1);
 });

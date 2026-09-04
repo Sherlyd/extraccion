@@ -1,93 +1,222 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Dashboard Piletas — {{ usuario['nombre'] }}</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
-  <style>
-    body { font-family: Arial, sans-serif; background: #f4f6f8; margin: 0; color: #333; }
-    header { background: #1F4E78; color: white; padding: 16px 32px; display: flex;
-              justify-content: space-between; align-items: center; }
-    header h1 { font-size: 18px; margin: 0; }
-    header a { color: #cfe0f0; text-decoration: none; font-size: 13px; }
-    main { padding: 24px 32px; max-width: 1100px; margin: 0 auto; }
-    .migas { font-size: 13px; color: #666; margin-bottom: 16px; }
-    .migas a { color: #1F4E78; text-decoration: none; }
-    .migas .fijo { color: #999; }
-    .alertas { background: #FFC7CE; color: #9C0006; padding: 12px 16px; border-radius: 8px; margin-bottom: 20px; }
-    .kpis { display: flex; gap: 16px; margin-bottom: 24px; flex-wrap: wrap; }
-    .kpi { background: white; border-radius: 10px; padding: 18px 22px; box-shadow: 0 1px 4px rgba(0,0,0,0.08);
-           flex: 1; min-width: 220px; }
-    .kpi .label { font-size: 12px; color: #888; text-transform: uppercase; }
-    .kpi .valor { font-size: 26px; font-weight: bold; color: #1F4E78; margin: 4px 0; }
-    .kpi .variacion.positiva { color: #1a7d3b; }
-    .kpi .variacion.negativa { color: #b3261e; }
-    .panel { background: white; border-radius: 10px; padding: 20px; margin-bottom: 24px;
-             box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-    .panel h2 { font-size: 15px; color: #1F4E78; margin-top: 0; }
-    table { width: 100%; border-collapse: collapse; font-size: 14px; }
-    th { text-align: left; color: #888; font-weight: normal; font-size: 12px; text-transform: uppercase;
-         border-bottom: 1px solid #eee; padding: 6px 4px; }
-    td { padding: 8px 4px; border-bottom: 1px solid #f2f2f2; }
-    td.num { text-align: right; }
-    td a { color: #1F4E78; text-decoration: none; }
-    td a:hover { text-decoration: underline; }
-    canvas { max-height: 260px; }
-    .toggle-anual { font-size: 12px; color: #1F4E78; margin-top: 8px; display: inline-block; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piletas — {{ usuario['nombre'] }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --acero-900: #10202E;
+    --acero-800: #1B2A38;
+    --acero-600: #3D5266;
+    --acero-300: #8CA0AF;
+    --papel: #F3F4F2;
+    --papel-alt: #E9EAE6;
+    --cobre: #B4652B;
+    --cobre-oscuro: #8B4A1E;
+    --ok: #2F7A5C;
+    --ok-bg: #E4F0EA;
+    --alerta: #B4472B;
+    --alerta-bg: #F6E6E1;
+    --linea: #D9DAD5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--papel); color: var(--acero-900);
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 15px; line-height: 1.45;
+  }
+  h1, h2, h3, .num { font-family: 'Space Grotesk', system-ui, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  header {
+    background: var(--acero-800); color: var(--papel);
+    padding: 18px 28px; display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 3px solid var(--cobre);
+  }
+  header h1 { font-size: 17px; font-weight: 600; margin: 0; letter-spacing: 0.01em; }
+  header .rol { color: var(--acero-300); font-size: 12px; margin-top: 2px; }
+  header nav a {
+    color: var(--papel); text-decoration: none; font-size: 13px; margin-left: 18px;
+    border-bottom: 1px solid transparent;
+  }
+  header nav a:hover { border-bottom-color: var(--cobre); }
+  header nav a.destacado {
+    background: var(--cobre); padding: 8px 14px; border-radius: 3px; margin-left: 18px;
+  }
+  header nav a.destacado:hover { background: var(--cobre-oscuro); border-bottom-color: transparent; }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 24px 28px 60px; }
+
+  .migas { font-size: 13px; color: var(--acero-600); margin-bottom: 4px; }
+  .migas a { color: var(--acero-600); }
+  .migas .actual { color: var(--acero-900); font-weight: 600; }
+
+  .barra-filtros {
+    display: flex; align-items: flex-end; gap: 16px; margin: 18px 0 26px;
+    padding: 14px 18px; background: var(--papel-alt); border-left: 3px solid var(--acero-600);
+  }
+  .barra-filtros .campo { display: flex; flex-direction: column; gap: 4px; }
+  .barra-filtros label { font-size: 11.5px; color: var(--acero-600); }
+  .barra-filtros select {
+    font-family: inherit; font-size: 14px; padding: 6px 10px; border: 1px solid var(--acero-300);
+    background: white; color: var(--acero-900); min-width: 130px;
+  }
+  .barra-filtros button {
+    font-family: inherit; font-size: 13px; padding: 7px 16px; background: var(--acero-800);
+    color: white; border: none; cursor: pointer;
+  }
+  .barra-filtros button:hover { background: var(--acero-600); }
+  .barra-filtros .limpiar { font-size: 12.5px; color: var(--acero-600); align-self: center; }
+
+  .alertas {
+    background: var(--alerta-bg); border-left: 3px solid var(--alerta); color: var(--alerta);
+    padding: 12px 16px; margin-bottom: 24px; font-size: 14px;
+  }
+  .alertas strong { display: block; margin-bottom: 4px; font-size: 12.5px; text-transform: none; }
+
+  .kpis { display: grid; grid-template-columns: 1.3fr 1fr; gap: 16px; margin-bottom: 30px; }
+  @media (max-width: 640px) { .kpis { grid-template-columns: 1fr; } }
+
+  .kpi {
+    background: white; border: 1px solid var(--linea); border-left: 4px solid var(--acero-600);
+    padding: 16px 20px;
+  }
+  .kpi.ok { border-left-color: var(--ok); }
+  .kpi.alerta { border-left-color: var(--alerta); }
+  .kpi .titulo { font-size: 12.5px; color: var(--acero-600); margin-bottom: 6px; }
+  .kpi .valor { font-size: 30px; font-weight: 700; }
+  .kpi .comparado {
+    font-size: 12.5px; color: var(--acero-600); margin-top: 6px; padding-top: 8px;
+    border-top: 1px solid var(--linea);
+  }
+  .kpi .variacion { font-weight: 600; }
+  .kpi .variacion.positiva { color: var(--ok); }
+  .kpi .variacion.negativa { color: var(--alerta); }
+  .kpi .umbral-nota { font-size: 11px; color: var(--acero-300); margin-top: 4px; }
+
+  .panel {
+    background: white; border: 1px solid var(--linea); padding: 20px; margin-bottom: 24px;
+  }
+  .panel h2 {
+    font-size: 14px; font-weight: 600; color: var(--acero-800); margin: 0 0 14px;
+    padding-bottom: 10px; border-bottom: 1px solid var(--linea);
+  }
+  .panel h2 .sub { font-weight: 400; color: var(--acero-600); font-size: 12.5px; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th {
+    text-align: left; font-weight: 500; color: var(--acero-600); font-size: 11.5px;
+    border-bottom: 1px solid var(--linea); padding: 6px 8px;
+  }
+  td { padding: 8px; border-bottom: 1px solid var(--papel-alt); }
+  td.num { text-align: right; }
+  .tag {
+    display: inline-block; font-size: 10.5px; padding: 2px 7px; border-radius: 2px;
+    background: var(--papel-alt); color: var(--acero-600);
+  }
+  .tag.accesorio { background: #F0E6D8; color: var(--cobre-oscuro); }
+
+  a.link-nivel { color: var(--acero-800); text-decoration: none; border-bottom: 1px solid var(--acero-300); }
+  a.link-nivel:hover { border-bottom-color: var(--cobre); }
+
+  canvas { max-height: 320px; }
+</style>
 </head>
 <body>
   <header>
-    <h1>Piletas — {{ usuario['nombre'] }} ({{ usuario['rol'] }})</h1>
     <div>
-      <a href="{{ url_for('descargar_informe') }}" style="color:white; background:#2c6ba0; padding:8px 14px;
-         border-radius:6px; text-decoration:none; font-size:13px; margin-right:12px;">Descargar informe (Excel)</a>
-      <a href="{{ url_for('logout') }}">Cambiar usuario</a>
+      <h1>Piletas — {{ usuario['nombre'] }}</h1>
+      <div class="rol">{{ usuario['rol'] }}</div>
     </div>
+    <nav>
+      <a href="{{ url_for('logout') }}">Cambiar usuario</a>
+      <a class="destacado" href="{{ descarga_href }}">Descargar informe</a>
+    </nav>
   </header>
 
   <main>
     {% if migas %}
     <div class="migas">
-      <a href="{{ url_for('dashboard') }}">Todo</a>
-      {% for m in migas %}
-        &raquo; <span class="{{ 'fijo' if m.fijo else '' }}">{{ m.valor }}</span>
-      {% endfor %}
+      {% for m in migas %}{{ m.valor }}{% if not loop.last %} / {% endif %}{% endfor %}
     </div>
     {% endif %}
 
+    <form class="barra-filtros" method="get">
+      {% for campo, valor in filtros_drill.items() %}
+        <input type="hidden" name="{{ campo }}" value="{{ valor }}">
+      {% endfor %}
+      <div class="campo">
+        <label for="anio_filtro">Año</label>
+        <select name="anio_filtro" id="anio_filtro">
+          <option value="">Todos los años</option>
+          {% for a in anios_disponibles %}
+            <option value="{{ a }}" {% if anio_filtro == a %}selected{% endif %}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="mes_filtro">Mes</label>
+        <select name="mes_filtro" id="mes_filtro">
+          <option value="">Todos los meses</option>
+          {% for num, nombre in meses_nombre.items() %}
+            <option value="{{ num }}" {% if mes_filtro == num %}selected{% endif %}>{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit">Aplicar</button>
+      {% if anio_filtro or mes_filtro %}
+        <a class="limpiar" href="{{ limpiar_periodo_href }}">Quitar filtro de período</a>
+      {% endif %}
+    </form>
+
     {% if alertas %}
       <div class="alertas">
-        <strong>Alertas</strong>
-        <ul>{% for a in alertas %}<li>{{ a }}</li>{% endfor %}</ul>
+        <strong>Alertas — desvío mayor a {{ '%.0f'|format(umbral_alerta*100) }}%</strong>
+        <ul style="margin:4px 0 0; padding-left:18px;">
+          {% for a in alertas %}<li>{{ a }}</li>{% endfor %}
+        </ul>
       </div>
     {% endif %}
 
     <div class="kpis">
       {% if comparacion %}
-      <div class="kpi">
-        <div class="label">Facturación {{ comparacion['mes_actual'] }}</div>
-        <div class="valor">${{ '{:,.0f}'.format(comparacion['valor_actual']).replace(',', '.') }}</div>
-        <div class="variacion {{ 'positiva' if comparacion['variacion_pct'] >= 0 else 'negativa' }}">
-          {{ '{:+.1%}'.format(comparacion['variacion_pct']) }} vs. promedio histórico
+      <div class="kpi {{ 'alerta' if comparacion['variacion_pct']|abs >= umbral_alerta else 'ok' }}">
+        <div class="titulo">Facturación — {{ comparacion['periodo_actual_legible'] }}</div>
+        <div class="valor num">${{ '{:,.0f}'.format(comparacion['valor_actual']).replace(',', '.') }}</div>
+        <div class="comparado">
+          vs. <strong>{{ comparacion['periodo_comparado_legible'] }}</strong>:
+          ${{ '{:,.0f}'.format(comparacion.get('promedio_historico', 0)).replace(',', '.') }}
+          — <span class="variacion {{ 'positiva' if comparacion['variacion_pct'] >= 0 else 'negativa' }}">
+            {{ '{:+.1%}'.format(comparacion['variacion_pct']) }}
+          </span>
         </div>
+        <div class="umbral-nota">Umbral de alerta configurado: ±{{ '%.0f'|format(umbral_alerta*100) }}%</div>
+      </div>
+      {% else %}
+      <div class="kpi">
+        <div class="titulo">Facturación</div>
+        <div class="valor num">Sin datos suficientes para comparar en este período</div>
       </div>
       {% endif %}
+
       <div class="kpi">
-        <div class="label">Pendiente de fabricar/entregar</div>
-        <div class="valor">${{ '{:,.0f}'.format(cartera['total']).replace(',', '.') }}</div>
-        <div class="variacion">Bloqueado ONF: ${{ '{:,.0f}'.format(cartera['bloqueado_onf']).replace(',', '.') }}</div>
+        <div class="titulo">Pendiente de fabricar/entregar</div>
+        <div class="valor num">${{ '{:,.0f}'.format(cartera['total']).replace(',', '.') }}</div>
+        <div class="comparado">Bloqueado por ONF: ${{ '{:,.0f}'.format(cartera['bloqueado_onf']).replace(',', '.') }}</div>
       </div>
     </div>
 
-    {% if siguiente_nivel and opciones_nivel %}
+    {% if siguiente_nivel and opciones_nivel_links %}
     <div class="panel">
-      <h2>Explorar por {{ siguiente_nivel.replace('_', ' ') }}</h2>
+      <h2>{{ siguiente_nivel|replace('_', ' ')|capitalize }} <span class="sub">— elegí uno para ver su detalle</span></h2>
       <table>
-        <tr><th>{{ siguiente_nivel.replace('_', ' ') }}</th></tr>
-        {% for opcion in opciones_nivel %}
+        {% for opcion, href in opciones_nivel_links %}
         <tr><td>
-          <a href="{{ url_for('dashboard', **dict(filtros_drill, **{siguiente_nivel: opcion})) }}">{{ opcion }}</a>
+          <a class="link-nivel" href="{{ href }}">{{ opcion }}</a>
         </td></tr>
         {% endfor %}
       </table>
@@ -95,48 +224,26 @@
     {% endif %}
 
     <div class="panel">
-      <h2>Facturación por mes (vista actual)</h2>
-      <canvas id="chartMensual"></canvas>
+      <h2>Facturación mensual — todos los años disponibles <span class="sub">(pasá el mouse sobre la línea para ver el valor exacto)</span></h2>
+      <canvas id="chartMultianio"></canvas>
     </div>
 
     <div class="panel">
-      <h2>Histórico anual {% if not anio_seleccionado %}(clic en un año para ver el detalle mes a mes vs. el año anterior){% endif %}</h2>
-      <canvas id="chartAnual"></canvas>
-      {% if anio_seleccionado %}
-        <a class="toggle-anual" href="{{ url_for('dashboard', **filtros_drill) }}">« Volver al histórico completo</a>
-      {% endif %}
-    </div>
-
-    {% if comparacion_anual %}
-    <div class="panel">
-      <h2>{{ anio_seleccionado }} vs. {{ anio_seleccionado|int - 1 }}, mes a mes</h2>
+      <h2>Top artículos <span class="sub">— {{ anio_filtro or 'todos los años' }}{% if mes_filtro %} / {{ meses_nombre[mes_filtro] }}{% endif %}</span></h2>
       <table>
-        <tr><th>Mes</th><th style="text-align:right;">{{ anio_seleccionado }}</th>
-            <th style="text-align:right;">{{ anio_seleccionado|int - 1 }}</th><th style="text-align:right;">Variación</th></tr>
-        {% for f in comparacion_anual %}
+        <tr><th>Artículo</th><th>Categoría</th><th style="text-align:right;">Importe</th></tr>
+        {% for a in top_articulos %}
         <tr>
-          <td>{{ f.mes }}</td>
-          <td class="num">${{ '{:,.0f}'.format(f.actual).replace(',', '.') }}</td>
-          <td class="num">${{ '{:,.0f}'.format(f.anterior).replace(',', '.') }}</td>
-          <td class="num">{% if f.variacion_pct is not none %}{{ '{:+.1%}'.format(f.variacion_pct) }}{% else %}—{% endif %}</td>
+          <td>{{ a['articulo'] }}</td>
+          <td><span class="tag {{ 'accesorio' if a['es_accesorio'] else '' }}">{{ a['categoria'] }}</span></td>
+          <td class="num">${{ '{:,.0f}'.format(a['importe']).replace(',', '.') }}</td>
         </tr>
         {% endfor %}
       </table>
     </div>
-    {% endif %}
 
     <div class="panel">
-      <h2>Top artículos</h2>
-      <table>
-        <tr><th>Artículo</th><th style="text-align:right;">Importe</th></tr>
-        {% for nombre, valor in top_articulos %}
-        <tr><td>{{ nombre }}</td><td class="num">${{ '{:,.0f}'.format(valor).replace(',', '.') }}</td></tr>
-        {% endfor %}
-      </table>
-    </div>
-
-    <div class="panel">
-      <h2>Top distribuidores</h2>
+      <h2>Top distribuidores <span class="sub">— {{ anio_filtro or 'todos los años' }}{% if mes_filtro %} / {{ meses_nombre[mes_filtro] }}{% endif %}</span></h2>
       <table>
         <tr><th>Distribuidor</th><th style="text-align:right;">Importe</th></tr>
         {% for nombre, valor in top_distribuidores %}
@@ -147,28 +254,37 @@
   </main>
 
   <script>
-    const dataMensual = {{ chart_data_json | safe }};
-    new Chart(document.getElementById('chartMensual'), {
-      type: 'bar',
-      data: { labels: dataMensual.labels, datasets: [{ label: 'Facturación neta', data: dataMensual.valores, backgroundColor: '#1F4E78' }] },
-      options: { plugins: { legend: { display: false } } }
-    });
+    const datos = {{ chart_multianio_json | safe }};
+    const paleta = ['#B4652B', '#1B2A38', '#2F7A5C', '#8CA0AF', '#6B3F94', '#C9A227'];
 
-    const dataAnual = {{ chart_anual_json | safe }};
-    const chartAnual = new Chart(document.getElementById('chartAnual'), {
-      type: 'bar',
-      data: { labels: dataAnual.labels, datasets: [{ label: 'Facturación anual', data: dataAnual.valores, backgroundColor: '#2c6ba0' }] },
+    new Chart(document.getElementById('chartMultianio'), {
+      type: 'line',
+      data: {
+        labels: datos.meses,
+        datasets: datos.series.map((s, i) => ({
+          label: s.anio,
+          data: s.valores,
+          borderColor: paleta[i % paleta.length],
+          backgroundColor: paleta[i % paleta.length],
+          tension: 0.25,
+          pointRadius: 3,
+          pointHoverRadius: 6,
+        })),
+      },
       options: {
-        plugins: { legend: { display: false } },
-        onClick: (evt, elements) => {
-          if (elements.length > 0) {
-            const anio = dataAnual.labels[elements[0].index];
-            const params = new URLSearchParams(window.location.search);
-            params.set('anio', anio);
-            window.location.search = params.toString();
-          }
-        }
-      }
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', labels: { font: { family: 'IBM Plex Sans' } } },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => `${ctx.dataset.label}: $${ctx.parsed.y.toLocaleString('es-AR')}`,
+            },
+          },
+        },
+        scales: {
+          y: { ticks: { callback: (v) => '$' + v.toLocaleString('es-AR') } },
+        },
+      },
     });
   </script>
 </body>

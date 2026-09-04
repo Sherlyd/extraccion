@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS facturacion (
     cliente_final_nombre TEXT,
     articulo TEXT,
     rubro TEXT,                       -- Familia1 de Qlik (Piletas, Mesada, Mueblería, ...)
+    familia4 TEXT,                    -- Familia4: distingue ACCESORIOS/SEGUNDA del producto principal
     ejecutivo_cuenta TEXT,            -- vendedor
     centro_distribucion TEXT,         -- nivel macro (ej: Parana, Buenos Aires)
     zona TEXT,                        -- nivel intermedio dentro de un centro

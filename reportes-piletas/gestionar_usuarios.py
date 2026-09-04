@@ -18,14 +18,17 @@ from werkzeug.security import generate_password_hash
 from db import get_connection, init_db
 
 
-def crear(nombre, email, password, rol, sucursal=None, rubro=None, ejecutivo_cuenta=None):
+def crear(nombre, email, password, rol, centro_distribucion=None, zona=None, sucursal=None,
+          rubro=None, ejecutivo_cuenta=None):
     init_db()
     conn = get_connection()
     try:
         conn.execute('''
-            INSERT INTO usuarios (nombre, email, password_hash, rol, sucursal, rubro, ejecutivo_cuenta)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        ''', (nombre, email, generate_password_hash(password), rol, sucursal, rubro, ejecutivo_cuenta))
+            INSERT INTO usuarios (nombre, email, password_hash, rol, centro_distribucion, zona,
+                                   sucursal, rubro, ejecutivo_cuenta)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ''', (nombre, email, generate_password_hash(password), rol, centro_distribucion, zona,
+              sucursal, rubro, ejecutivo_cuenta))
         conn.commit()
         print(f'Usuario creado: {nombre} <{email}> — rol: {rol}')
     except Exception as e:
@@ -40,7 +43,9 @@ def listar():
     print(f'\n{len(usuarios)} usuarios:\n')
     for u in usuarios:
         estado = 'activo' if u['activo'] else 'INACTIVO'
-        print(f"- {u['nombre']} <{u['email']}> — {u['rol']} — sucursal={u['sucursal']} rubro={u['rubro']} ({estado})")
+        print(f"- {u['nombre']} <{u['email']}> — {u['rol']} — "
+              f"centro={u['centro_distribucion']} zona={u['zona']} sucursal={u['sucursal']} "
+              f"rubro={u['rubro']} ({estado})")
     conn.close()
 
 
@@ -70,13 +75,15 @@ if __name__ == '__main__':
 
     if comando == 'crear':
         if len(sys.argv) < 6:
-            print('Uso: python gestionar_usuarios.py crear "Nombre" email contraseña rol [sucursal] [rubro] [ejecutivo_cuenta]')
+            print('Uso: python gestionar_usuarios.py crear "Nombre" email contraseña rol [centro_distribucion] [zona] [sucursal] [rubro] [ejecutivo_cuenta]')
             sys.exit(1)
         nombre, email, password, rol = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-        sucursal = sys.argv[6] if len(sys.argv) > 6 else None
-        rubro = sys.argv[7] if len(sys.argv) > 7 else None
-        ejecutivo = sys.argv[8] if len(sys.argv) > 8 else None
-        crear(nombre, email, password, rol, sucursal, rubro, ejecutivo)
+        centro = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else None
+        zona = sys.argv[7] if len(sys.argv) > 7 and sys.argv[7] else None
+        sucursal = sys.argv[8] if len(sys.argv) > 8 and sys.argv[8] else None
+        rubro = sys.argv[9] if len(sys.argv) > 9 and sys.argv[9] else None
+        ejecutivo = sys.argv[10] if len(sys.argv) > 10 and sys.argv[10] else None
+        crear(nombre, email, password, rol, centro, zona, sucursal, rubro, ejecutivo)
 
     elif comando == 'listar':
         listar()
