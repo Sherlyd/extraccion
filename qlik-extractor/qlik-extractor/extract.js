@@ -163,7 +163,8 @@ async function main() {
 
   for (const def of extractions) {
     if (def.filtroDocumento) {
-      await app.field('_Documento').selectValues([{ qText: def.filtroDocumento }], false, true);
+      const campoDocumento = await app.getField('_Documento');
+      await campoDocumento.selectValues([{ qText: def.filtroDocumento }], false, true);
     }
 
     const { rows, headers, numDimensions } = await extractOne(app, def);
