@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Detalle de Facturación — {{ usuario['nombre'] }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=IBM+Plex+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root { --acero-900:#10202E; --acero-800:#1B2A38; --acero-600:#3D5266; --acero-300:#8CA0AF;
+    --papel:#F3F4F2; --papel-alt:#E9EAE6; --cobre:#B4652B; --linea:#D9DAD5; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--papel); color:var(--acero-900); font-family:'IBM Plex Sans', sans-serif; font-size:14px; }
+  h1 { font-family:'Space Grotesk', sans-serif; font-size:17px; margin:0; }
+  header { background:var(--acero-800); color:white; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid var(--cobre); }
+  header nav a { color:white; text-decoration:none; font-size:13px; margin-left:16px; }
+  main { max-width:1200px; margin:0 auto; padding:20px 24px 50px; }
+  .barra-filtros { display:flex; gap:14px; align-items:flex-end; margin-bottom:16px; padding:12px 16px; background:var(--papel-alt); border-left:3px solid var(--acero-600); }
+  .barra-filtros select { font-family:inherit; padding:6px 8px; border:1px solid var(--acero-300); }
+  .barra-filtros button { background:var(--acero-800); color:white; border:none; padding:7px 14px; cursor:pointer; }
+  .info-tabla { font-size:12.5px; color:var(--acero-600); margin-bottom:8px; }
+  .contenedor-tabla { overflow-x:auto; background:white; border:1px solid var(--linea); }
+  table { width:100%; border-collapse:collapse; font-size:12.5px; white-space:nowrap; }
+  th { text-align:left; background:var(--papel-alt); color:var(--acero-600); font-weight:500; padding:8px; position:sticky; top:0; }
+  td { padding:7px 8px; border-bottom:1px solid var(--papel-alt); }
+  td.num { text-align:right; font-family:'Space Grotesk', sans-serif; }
+  a.celda { color:var(--acero-800); text-decoration:none; border-bottom:1px dashed var(--acero-300); }
+  a.celda:hover { border-bottom-color:var(--cobre); color:var(--cobre); }
+  .paginacion { display:flex; gap:8px; align-items:center; margin-top:14px; font-size:13px; }
+  .paginacion a, .paginacion span { padding:6px 10px; border:1px solid var(--linea); text-decoration:none; color:var(--acero-800); }
+  .paginacion .actual { background:var(--acero-800); color:white; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Detalle de Facturación <span style="font-weight:400; color:#8CA0AF;">(tabla cruda, cada celda subrayada lleva al análisis de ese dato)</span></h1>
+    <nav>
+      <a href="{{ url_for('dashboard') }}">Volver al dashboard</a>
+      <a href="{{ url_for('logout') }}">Cambiar usuario</a>
+    </nav>
+  </header>
+
+  <main>
+    <form class="barra-filtros" method="get">
+      {% for campo, valor in query_base.items() %}
+        {% if campo not in ['anio_filtro','mes_filtro'] %}<input type="hidden" name="{{ campo }}" value="{{ valor }}">{% endif %}
+      {% endfor %}
+      <select name="anio_filtro">
+        <option value="">Todos los años</option>
+        {% for a in anios_disponibles %}<option value="{{ a }}" {% if anio_filtro==a %}selected{% endif %}>{{ a }}</option>{% endfor %}
+      </select>
+      <select name="mes_filtro">
+        <option value="">Todos los meses</option>
+        {% for num, nombre in meses_nombre.items() %}<option value="{{ num }}" {% if mes_filtro==num %}selected{% endif %}>{{ nombre }}</option>{% endfor %}
+      </select>
+      <button type="submit">Aplicar</button>
+    </form>
+
+    <div class="info-tabla">{{ total_filas }} filas en total — mostrando página {{ pagina }} de {{ total_paginas }}</div>
+
+    <div class="contenedor-tabla">
+      <table>
+        <tr>
+          <th>Fecha</th><th>Tipo</th><th>Distribuidor</th><th>Cliente Final</th><th>Artículo</th>
+          <th>Rubro</th><th>Categoría</th><th>Ejecutivo</th><th>Centro</th><th>Zona</th>
+          <th style="text-align:right;">Cantidad</th><th style="text-align:right;">Importe</th>
+        </tr>
+        {% for f in filas %}
+        <tr>
+          <td>{{ f['fecha'] }}</td>
+          <td><a class="celda" href="{{ href_analisis('tipo_comp', f['tipo_comp']) }}">{{ f['tipo_comp'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('distribuidor_nombre', f['distribuidor_nombre']) }}">{{ f['distribuidor_nombre'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('cliente_final_nombre', f['cliente_final_nombre']) }}">{{ f['cliente_final_nombre'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('articulo', f['articulo']) }}">{{ f['articulo'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('rubro', f['rubro']) }}">{{ f['rubro'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('familia4', f['familia4']) }}">{{ f['familia4'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('ejecutivo_cuenta', f['ejecutivo_cuenta']) }}">{{ f['ejecutivo_cuenta'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('centro_distribucion', f['centro_distribucion']) }}">{{ f['centro_distribucion'] }}</a></td>
+          <td><a class="celda" href="{{ href_analisis('zona', f['zona']) }}">{{ f['zona'] }}</a></td>
+          <td class="num">{{ '{:,.0f}'.format(f['cantidad'] or 0).replace(',', '.') }}</td>
+          <td class="num">${{ '{:,.0f}'.format(f['importe_neto'] or 0).replace(',', '.') }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <div class="paginacion">
+      {% set qs = query_base.copy() %}
+      {% if pagina > 1 %}<a href="{{ url_for('tabla_datos', pagina=pagina-1, **qs) }}">← Anterior</a>{% endif %}
+      <span class="actual">{{ pagina }} / {{ total_paginas }}</span>
+      {% if pagina < total_paginas %}<a href="{{ url_for('tabla_datos', pagina=pagina+1, **qs) }}">Siguiente →</a>{% endif %}
+    </div>
+  </main>
+</body>
+</html>

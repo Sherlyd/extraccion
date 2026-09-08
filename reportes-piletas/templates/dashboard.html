@@ -133,6 +133,7 @@
       <div class="rol">{{ usuario['rol'] }}</div>
     </div>
     <nav>
+      <a href="{{ url_for('ejecutivos') }}">Ejecutivos de Cuenta</a>
       <a href="{{ url_for('logout') }}">Cambiar usuario</a>
       <a class="destacado" href="{{ descarga_href }}">Descargar informe</a>
     </nav>
@@ -224,7 +225,20 @@
     {% endif %}
 
     <div class="panel">
-      <h2>Facturación mensual — todos los años disponibles <span class="sub">(pasá el mouse sobre la línea para ver el valor exacto)</span></h2>
+      <h2>Facturación mensual <span class="sub">— comparando: {{ anios_comparar|join(', ') }}</span></h2>
+      <form method="get" style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:12.5px;">
+        {% for campo, valor in filtros_drill.items() %}<input type="hidden" name="{{ campo }}" value="{{ valor }}">{% endfor %}
+        {% if anio_filtro %}<input type="hidden" name="anio_filtro" value="{{ anio_filtro }}">{% endif %}
+        {% if mes_filtro %}<input type="hidden" name="mes_filtro" value="{{ mes_filtro }}">{% endif %}
+        <span style="color:var(--acero-600);">Comparar años:</span>
+        {% for a in anios_disponibles %}
+        <label style="display:flex; align-items:center; gap:3px;">
+          <input type="checkbox" name="anios_comparar" value="{{ a }}" {% if a in anios_comparar %}checked{% endif %}>
+          {{ a }}
+        </label>
+        {% endfor %}
+        <button type="submit" style="font-family:inherit; font-size:12px; padding:4px 12px; background:var(--acero-800); color:white; border:none; cursor:pointer;">Actualizar</button>
+      </form>
       <canvas id="chartMultianio"></canvas>
     </div>
 

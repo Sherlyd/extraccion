@@ -1,6 +1,9 @@
 # email_informe.py
-# Arma el HTML del informe diario para un usuario puntual (ya con sus
-# datos filtrados por rol) y lo envia por correo.
+# Arma y envia el mail diario. Pensado para alguien que NO va a
+# interpretar numeros sueltos: la conclusion en palabras va primero,
+# los indicadores usan semaforo de color (verde/amarillo/rojo), y no
+# hay ninguna interaccion esperada del lector (nada de filtros ni
+# clics para entender el estado del dia).
 
 import smtplib
 from email.mime.multipart import MIMEMultipart
@@ -13,62 +16,87 @@ def _fmt_money(v):
     return f'${v:,.0f}'.replace(',', '.')
 
 
-def armar_html(usuario, por_mes, comparacion, top_articulos, top_distribuidores,
-                cartera, alertas):
+def _color_semaforo(comparacion, umbral):
+    """Verde: dentro de lo esperado. Amarillo: se acerca al umbral.
+    Rojo: supera el umbral (para bien o para mal, ambos ameritan
+    mirarlo)."""
+    if not comparacion or not comparacion.get('hay_comparacion', True):
+        return '#8CA0AF', '#F3F4F2'  # gris: sin dato para comparar
+    desvio = abs(comparacion['variacion_pct'])
+    if desvio >= umbral:
+        return '#B4472B', '#F6E6E1'  # rojo
+    if desvio >= umbral * 0.6:
+        return '#C9962E', '#FBF1DE'  # amarillo
+    return '#2F7A5C', '#E4F0EA'      # verde
+
+
+def armar_html(usuario, comparacion, top_articulos, top_distribuidores, cartera, alertas, umbral):
+    narrativa = metricas.generar_narrativa(comparacion, alertas, cartera)
+    color_borde, color_fondo = _color_semaforo(comparacion, umbral)
+
     alertas_html = ''
     if alertas:
-        items = ''.join(f'<li style="color:#9C0006;">{a}</li>' for a in alertas)
+        items = ''.join(f'<li style="margin-bottom:4px;">{a}</li>' for a in alertas)
         alertas_html = f'''
-        <div style="background:#FFC7CE; padding:12px 16px; border-radius:6px; margin-bottom:20px;">
-            <strong>Alertas de hoy</strong>
-            <ul style="margin:8px 0 0 0;">{items}</ul>
+        <div style="background:#F6E6E1; border-left:4px solid #B4472B; padding:14px 18px; margin:20px 0; font-size:15px; color:#8B2E1C;">
+            <strong>Para revisar hoy:</strong>
+            <ul style="margin:8px 0 0 0; padding-left:20px;">{items}</ul>
         </div>'''
 
-    comp_html = ''
-    if comparacion:
-        signo = '+' if comparacion['variacion_pct'] >= 0 else ''
-        comp_html = f'''
-        <p><strong>{comparacion['mes_actual']}:</strong> {_fmt_money(comparacion['valor_actual'])}
-        ({signo}{comparacion['variacion_pct']:.1%} vs. promedio histórico de
-        {_fmt_money(comparacion['promedio_historico'])})</p>'''
-
-    filas_mes = ''.join(
-        f'<tr><td style="padding:4px 12px;">{m}</td>'
-        f'<td style="padding:4px 12px; text-align:right;">{_fmt_money(v)}</td></tr>'
-        for m, v in por_mes.items()
-    )
-
     filas_top_art = ''.join(
-        f'<tr><td style="padding:4px 12px;">{a}</td>'
-        f'<td style="padding:4px 12px; text-align:right;">{_fmt_money(v)}</td></tr>'
-        for a, v in top_articulos
+        f'<tr><td style="padding:8px 12px; font-size:14px;">{a["articulo"]}</td>'
+        f'<td style="padding:8px 12px; font-size:13px; color:#8CA0AF;">{a["categoria"]}</td>'
+        f'<td style="padding:8px 12px; text-align:right; font-size:14px; font-weight:600;">{_fmt_money(a["importe"])}</td></tr>'
+        for a in top_articulos
     )
 
     filas_top_dist = ''.join(
-        f'<tr><td style="padding:4px 12px;">{a}</td>'
-        f'<td style="padding:4px 12px; text-align:right;">{_fmt_money(v)}</td></tr>'
-        for a, v in top_distribuidores
+        f'<tr><td style="padding:8px 12px; font-size:14px;">{n}</td>'
+        f'<td style="padding:8px 12px; text-align:right; font-size:14px; font-weight:600;">{_fmt_money(v)}</td></tr>'
+        for n, v in top_distribuidores
     )
 
+    periodo = comparacion['periodo_actual_legible'] if comparacion else ''
+
     return f'''
-    <html><body style="font-family: Arial, sans-serif; color:#333;">
-    <h2 style="color:#1F4E78;">Informe diario — Piletas</h2>
-    <p style="color:#888;">Hola {usuario['nombre']}, este es tu resumen del día.</p>
+    <html><body style="font-family: Arial, sans-serif; color:#10202E; background:#F3F4F2; margin:0; padding:0;">
+    <div style="max-width:600px; margin:0 auto; background:white;">
 
-    {alertas_html}
+      <div style="background:#1B2A38; padding:24px 28px; border-bottom:4px solid #B4652B;">
+        <div style="color:#8CA0AF; font-size:13px; text-transform:uppercase; letter-spacing:0.05em;">Resumen diario — Piletas</div>
+        <div style="color:white; font-size:20px; font-weight:bold; margin-top:4px;">Hola {usuario['nombre']}</div>
+        <div style="color:#8CA0AF; font-size:13px; margin-top:2px;">{periodo}</div>
+      </div>
 
-    <h3 style="color:#1F4E78;">Facturación</h3>
-    {comp_html}
-    <table style="border-collapse:collapse; margin-bottom:20px;">{filas_mes}</table>
+      <div style="padding:24px 28px;">
 
-    <h3 style="color:#1F4E78;">Top artículos</h3>
-    <table style="border-collapse:collapse; margin-bottom:20px;">{filas_top_art}</table>
+        <div style="background:{color_fondo}; border-left:5px solid {color_borde}; padding:16px 20px; font-size:16px; line-height:1.5;">
+          {narrativa}
+        </div>
 
-    <h3 style="color:#1F4E78;">Top distribuidores</h3>
-    <table style="border-collapse:collapse; margin-bottom:20px;">{filas_top_dist}</table>
+        {alertas_html}
 
-    <h3 style="color:#1F4E78;">Pedidos pendientes de fabricar/entregar</h3>
-    <p>Total: {_fmt_money(cartera['total'])} — Bloqueado por ONF: {_fmt_money(cartera['bloqueado_onf'])}</p>
+        <div style="margin-top:28px;">
+          <div style="font-size:13px; color:#8CA0AF; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Pendiente de fabricar / entregar</div>
+          <div style="font-size:26px; font-weight:bold;">{_fmt_money(cartera['total'])}</div>
+          <div style="font-size:13px; color:#8CA0AF; margin-top:2px;">De eso, {_fmt_money(cartera['bloqueado_onf'])} está bloqueado administrativamente.</div>
+        </div>
+
+        <div style="margin-top:28px;">
+          <div style="font-size:13px; color:#8CA0AF; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Lo que más se vendió</div>
+          <table style="width:100%; border-collapse:collapse;">{filas_top_art}</table>
+        </div>
+
+        <div style="margin-top:24px;">
+          <div style="font-size:13px; color:#8CA0AF; text-transform:uppercase; letter-spacing:0.05em; margin-bottom:8px;">Principales distribuidores</div>
+          <table style="width:100%; border-collapse:collapse;">{filas_top_dist}</table>
+        </div>
+
+        <div style="margin-top:32px; padding-top:16px; border-top:1px solid #E9EAE6; font-size:12px; color:#8CA0AF;">
+          Este es un resumen automático. Si querés ver el detalle completo, entrá al panel web.
+        </div>
+      </div>
+    </div>
     </body></html>'''
 
 

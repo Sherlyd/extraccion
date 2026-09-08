@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Piletas — {{ usuario['nombre'] }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --acero-800: #1B2A38; --cobre: #B4652B;
+    --ok: #2F7A5C; --ok-bg: #E4F0EA;
+    --alerta: #B4472B; --alerta-bg: #F6E6E1;
+    --papel: #F5F6F4; --linea: #DADBD7;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--papel); color: #1B2A38;
+    font-family: 'IBM Plex Sans', system-ui, sans-serif;
+    font-size: 19px; line-height: 1.5;
+  }
+  h1, h2, .num { font-family: 'Space Grotesk', system-ui, sans-serif; }
+  header {
+    background: var(--acero-800); color: white; padding: 22px 26px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  header h1 { font-size: 24px; margin: 0; }
+  header a {
+    color: white; background: rgba(255,255,255,0.15); text-decoration: none;
+    padding: 12px 20px; border-radius: 6px; font-size: 17px;
+  }
+  main { max-width: 780px; margin: 0 auto; padding: 26px 20px 60px; }
+
+  .semaforo {
+    padding: 26px; border-radius: 10px; margin-bottom: 26px; text-align: center;
+    font-size: 24px; font-weight: 600;
+  }
+  .semaforo.ok { background: var(--ok-bg); color: var(--ok); }
+  .semaforo.alerta { background: var(--alerta-bg); color: var(--alerta); }
+  .semaforo .icono { font-size: 46px; display: block; margin-bottom: 6px; }
+
+  .alertas-lista { list-style: none; padding: 0; margin: 16px 0 0; font-size: 18px; text-align: left; }
+  .alertas-lista li { margin-bottom: 8px; }
+
+  .kpi {
+    background: white; border-radius: 10px; padding: 24px; margin-bottom: 20px;
+    border-left: 8px solid var(--acero-800); box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .kpi.ok { border-left-color: var(--ok); }
+  .kpi.alerta { border-left-color: var(--alerta); }
+  .kpi .titulo { font-size: 18px; color: #55606B; margin-bottom: 8px; }
+  .kpi .valor { font-size: 40px; font-weight: 700; }
+  .kpi .detalle { font-size: 17px; color: #55606B; margin-top: 8px; }
+
+  .panel {
+    background: white; border-radius: 10px; padding: 22px; margin-bottom: 24px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+  }
+  .panel h2 { font-size: 20px; margin: 0 0 16px; color: var(--acero-800); }
+  canvas { max-height: 280px; }
+
+  .boton-grande {
+    display: block; text-align: center; background: var(--cobre); color: white;
+    text-decoration: none; padding: 20px; border-radius: 10px; font-size: 20px;
+    font-weight: 600; margin-top: 10px;
+  }
+  .boton-grande:hover { background: #8B4A1E; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>Hola, {{ usuario['nombre'] }}</h1>
+    <a href="{{ url_for('logout') }}">Salir</a>
+  </header>
+
+  <main>
+    <div class="semaforo {{ estado }}">
+      <span class="icono">{{ '✅' if estado == 'ok' else '⚠️' }}</span>
+      {% if estado == 'ok' %}
+        Todo va bien
+      {% else %}
+        Hay algo para revisar
+      {% endif %}
+
+      {% if alertas %}
+      <ul class="alertas-lista">
+        {% for a in alertas %}<li>{{ a }}</li>{% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+
+    {% if comparacion %}
+    <div class="kpi {{ estado }}">
+      <div class="titulo">Facturación de {{ comparacion['periodo_actual_legible'] }}</div>
+      <div class="valor num">${{ '{:,.0f}'.format(comparacion['valor_actual']).replace(',', '.') }}</div>
+      <div class="detalle">
+        {% if comparacion['variacion_pct'] >= 0 %}
+          📈 Un {{ '{:.0%}'.format(comparacion['variacion_pct']) }} más que lo habitual
+        {% else %}
+          📉 Un {{ '{:.0%}'.format(comparacion['variacion_pct']|abs) }} menos que lo habitual
+        {% endif %}
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="kpi">
+      <div class="titulo">Pendiente de fabricar o entregar</div>
+      <div class="valor num">${{ '{:,.0f}'.format(cartera['total']).replace(',', '.') }}</div>
+    </div>
+
+    {% if anio_actual %}
+    <div class="panel">
+      <h2>Ventas mes a mes de {{ anio_actual }}</h2>
+      <canvas id="chartMensual"></canvas>
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <h2>Lo que más se vendió</h2>
+      <canvas id="chartArticulos"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Quiénes más compraron</h2>
+      <canvas id="chartDistribuidores"></canvas>
+    </div>
+
+    <a class="boton-grande" href="{{ url_for('descargar_informe') }}">⬇ Descargar resumen en Excel</a>
+  </main>
+
+  <script>
+    const colorPrincipal = '#B4652B';
+    const opcionesComunes = {
+      plugins: { legend: { display: false } },
+      scales: { x: { ticks: { font: { size: 14 } } }, y: { ticks: { font: { size: 14 } } } },
+    };
+
+    const datosMensual = {{ chart_mensual_json | safe }};
+    new Chart(document.getElementById('chartMensual'), {
+      type: 'bar',
+      data: { labels: datosMensual.meses, datasets: [{ data: datosMensual.valores, backgroundColor: colorPrincipal }] },
+      options: opcionesComunes,
+    });
+
+    const datosArt = {{ chart_articulos_json | safe }};
+    new Chart(document.getElementById('chartArticulos'), {
+      type: 'bar',
+      data: { labels: datosArt.nombres, datasets: [{ data: datosArt.valores, backgroundColor: '#1B2A38' }] },
+      options: { ...opcionesComunes, indexAxis: 'y' },
+    });
+
+    const datosDist = {{ chart_distribuidores_json | safe }};
+    new Chart(document.getElementById('chartDistribuidores'), {
+      type: 'bar',
+      data: { labels: datosDist.nombres, datasets: [{ data: datosDist.valores, backgroundColor: '#2F7A5C' }] },
+      options: { ...opcionesComunes, indexAxis: 'y' },
+    });
+  </script>
+</body>
+</html>

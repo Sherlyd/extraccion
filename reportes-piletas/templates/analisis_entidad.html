@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ etiqueta_campo }}: {{ valor }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root { --acero-900:#10202E; --acero-800:#1B2A38; --acero-600:#3D5266; --acero-300:#8CA0AF;
+    --papel:#F3F4F2; --papel-alt:#E9EAE6; --cobre:#B4652B; --linea:#D9DAD5; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--papel); color:var(--acero-900); font-family:'IBM Plex Sans', sans-serif; font-size:15px; }
+  h1,h2,.num { font-family:'Space Grotesk', sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  header { background:var(--acero-800); color:white; padding:18px 28px; display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid var(--cobre); }
+  header h1 { font-size:17px; font-weight:600; margin:0; }
+  header .eyebrow { color:var(--acero-300); font-size:12px; text-transform:uppercase; letter-spacing:0.05em; }
+  header nav a { color:white; text-decoration:none; font-size:13px; margin-left:16px; }
+  main { max-width:1080px; margin:0 auto; padding:24px 28px 60px; }
+  .kpis { display:flex; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+  .kpi { background:white; border:1px solid var(--linea); border-left:4px solid var(--acero-600); padding:16px 20px; flex:1; min-width:200px; }
+  .kpi .titulo { font-size:12px; color:var(--acero-600); margin-bottom:6px; }
+  .kpi .valor { font-size:26px; font-weight:700; }
+  .panel { background:white; border:1px solid var(--linea); padding:20px; margin-bottom:20px; }
+  .panel h2 { font-size:14px; font-weight:600; margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid var(--linea); }
+  .panel h2 .sub { font-weight:400; color:var(--acero-600); font-size:12px; }
+  .barra-filtros { display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:12.5px; margin-bottom:14px; }
+  .barra-filtros label { display:flex; align-items:center; gap:3px; }
+  .barra-filtros button { font-family:inherit; font-size:12px; padding:5px 14px; background:var(--acero-800); color:white; border:none; cursor:pointer; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th { text-align:left; font-weight:500; color:var(--acero-600); font-size:11.5px; border-bottom:1px solid var(--linea); padding:6px 8px; }
+  td { padding:8px; border-bottom:1px solid var(--papel-alt); }
+  td.num { text-align:right; }
+  a.link-fila { color:var(--acero-800); text-decoration:none; border-bottom:1px solid var(--acero-300); }
+  a.link-fila:hover { border-bottom-color:var(--cobre); }
+  .grid-desgloses { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+  @media (max-width:700px) { .grid-desgloses { grid-template-columns:1fr; } }
+  canvas { max-height:280px; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <div class="eyebrow">{{ etiqueta_campo }}</div>
+      <h1>{{ valor }}</h1>
+    </div>
+    <nav>
+      <a href="{{ url_for('dashboard') }}">Dashboard</a>
+      <a href="{{ url_for('logout') }}">Cambiar usuario</a>
+    </nav>
+  </header>
+
+  <main>
+    <div class="kpis">
+      <div class="kpi">
+        <div class="titulo">Facturación {{ anio_filtro or 'todos los años' }}{% if mes_filtro %} / {{ meses_nombre[mes_filtro] }}{% endif %}</div>
+        <div class="valor num">${{ '{:,.0f}'.format(total_importe).replace(',', '.') }}</div>
+      </div>
+      <div class="kpi">
+        <div class="titulo">Unidades</div>
+        <div class="valor num">{{ '{:,.0f}'.format(total_cantidad).replace(',', '.') }}</div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h2>Evolución mensual <span class="sub">— comparando: {{ anios_comparar|join(', ') }}</span></h2>
+      <form method="get" class="barra-filtros">
+        <input type="hidden" name="campo" value="{{ etiqueta_campo }}">
+        {% for campo, v in query_base.items() %}
+          {% if campo not in ['anio_filtro','mes_filtro'] %}<input type="hidden" name="{{ campo }}" value="{{ v }}">{% endif %}
+        {% endfor %}
+        {% if anio_filtro %}<input type="hidden" name="anio_filtro" value="{{ anio_filtro }}">{% endif %}
+        {% if mes_filtro %}<input type="hidden" name="mes_filtro" value="{{ mes_filtro }}">{% endif %}
+        <span style="color:var(--acero-600);">Comparar años:</span>
+        {% for a in anios_disponibles %}
+        <label><input type="checkbox" name="anios_comparar" value="{{ a }}" {% if a in anios_comparar %}checked{% endif %}> {{ a }}</label>
+        {% endfor %}
+        <button type="submit">Actualizar</button>
+      </form>
+      <canvas id="chartEntidad"></canvas>
+    </div>
+
+    <div class="grid-desgloses">
+      {% for etiqueta, info in desgloses.items() %}
+      <div class="panel">
+        <h2>{{ etiqueta }}</h2>
+        <table>
+          {% for nombre, val in info.ranking %}
+          <tr>
+            <td><a class="link-fila" href="{{ href_analisis(info.campo, nombre) }}">{{ nombre }}</a></td>
+            <td class="num">${{ '{:,.0f}'.format(val).replace(',', '.') }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      {% endfor %}
+    </div>
+  </main>
+
+  <script>
+    const datos = {{ chart_json | safe }};
+    const paleta = ['#B4652B', '#1B2A38', '#2F7A5C', '#8CA0AF', '#6B3F94', '#C9A227'];
+    new Chart(document.getElementById('chartEntidad'), {
+      type: 'line',
+      data: {
+        labels: datos.meses,
+        datasets: datos.series.map((s, i) => ({
+          label: s.anio, data: s.valores, borderColor: paleta[i % paleta.length],
+          backgroundColor: paleta[i % paleta.length], tension: 0.25, pointRadius: 3, pointHoverRadius: 6,
+        })),
+      },
+      options: { interaction: { mode: 'index', intersect: false }, plugins: { legend: { position: 'top' } } },
+    });
+  </script>
+</body>
+</html>

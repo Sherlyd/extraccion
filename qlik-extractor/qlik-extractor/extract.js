@@ -178,6 +178,8 @@ async function extraerConReintentos(def, intentosMax = 3) {
       const conectado = await openApp(config.appId);
       session = conectado.session;
       const app = conectado.app;
+      
+      await app.clearAll();
 
       if (def.filtroDocumento) {
         const campoDocumento = await app.getField('_Documento');

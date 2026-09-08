@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ejecutivos de Cuenta — {{ usuario['nombre'] }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root {
+    --acero-900: #10202E; --acero-800: #1B2A38; --acero-600: #3D5266; --acero-300: #8CA0AF;
+    --papel: #F3F4F2; --papel-alt: #E9EAE6; --cobre: #B4652B; --cobre-oscuro: #8B4A1E;
+    --ok: #2F7A5C; --alerta: #B4472B; --linea: #D9DAD5;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--papel); color:var(--acero-900); font-family:'IBM Plex Sans', system-ui, sans-serif; font-size:15px; }
+  h1,h2,.num { font-family:'Space Grotesk', system-ui, sans-serif; }
+  .num { font-variant-numeric: tabular-nums; }
+  header { background:var(--acero-800); color:var(--papel); padding:18px 28px; display:flex; justify-content:space-between; align-items:center; border-bottom:3px solid var(--cobre); }
+  header h1 { font-size:17px; font-weight:600; margin:0; }
+  header .rol { color:var(--acero-300); font-size:12px; margin-top:2px; }
+  header nav a { color:var(--papel); text-decoration:none; font-size:13px; margin-left:18px; border-bottom:1px solid transparent; }
+  header nav a:hover { border-bottom-color:var(--cobre); }
+  main { max-width:1080px; margin:0 auto; padding:24px 28px 60px; }
+  .barra-filtros { display:flex; align-items:flex-end; gap:16px; margin:0 0 22px; padding:14px 18px; background:var(--papel-alt); border-left:3px solid var(--acero-600); flex-wrap:wrap; }
+  .barra-filtros .campo { display:flex; flex-direction:column; gap:4px; }
+  .barra-filtros label { font-size:11.5px; color:var(--acero-600); }
+  .barra-filtros select { font-family:inherit; font-size:14px; padding:6px 10px; border:1px solid var(--acero-300); background:white; min-width:130px; }
+  .barra-filtros button { font-family:inherit; font-size:13px; padding:7px 16px; background:var(--acero-800); color:white; border:none; cursor:pointer; }
+  .toggle-unidad { display:flex; gap:0; border:1px solid var(--acero-600); }
+  .toggle-unidad a { padding:8px 16px; font-size:13px; text-decoration:none; color:var(--acero-600); }
+  .toggle-unidad a.activo { background:var(--cobre); color:white; }
+  .panel { background:white; border:1px solid var(--linea); padding:20px; margin-bottom:24px; }
+  .panel h2 { font-size:14px; font-weight:600; color:var(--acero-800); margin:0 0 14px; padding-bottom:10px; border-bottom:1px solid var(--linea); }
+  .panel h2 .sub { font-weight:400; color:var(--acero-600); font-size:12.5px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  th { text-align:left; font-weight:500; color:var(--acero-600); font-size:11.5px; border-bottom:1px solid var(--linea); padding:6px 8px; }
+  td { padding:8px; border-bottom:1px solid var(--papel-alt); }
+  td.num { text-align:right; }
+  a.link-fila { color:var(--acero-800); text-decoration:none; border-bottom:1px solid var(--acero-300); }
+  a.link-fila:hover { border-bottom-color:var(--cobre); }
+  .ubicaciones { font-size:12.5px; color:var(--acero-600); margin-bottom:16px; }
+  .volver { font-size:13px; color:var(--acero-600); display:inline-block; margin-bottom:16px; }
+  canvas { max-height:300px; }
+</style>
+</head>
+<body>
+  <header>
+    <div>
+      <h1>Ejecutivos de Cuenta{% if detalle %} — {{ detalle.nombre }}{% endif %}</h1>
+      <div class="rol">{{ usuario['nombre'] }} · {{ usuario['rol'] }}</div>
+    </div>
+    <nav>
+      <a href="{{ url_for('dashboard') }}">Volver al dashboard</a>
+      <a href="{{ url_for('logout') }}">Cambiar usuario</a>
+    </nav>
+  </header>
+
+  <main>
+    <form class="barra-filtros" method="get">
+      {% for campo, valor in query_base.items() %}
+        {% if campo not in ['anio_filtro', 'mes_filtro', 'unidad'] %}
+          <input type="hidden" name="{{ campo }}" value="{{ valor }}">
+        {% endif %}
+      {% endfor %}
+      <input type="hidden" name="unidad" value="{{ unidad }}">
+      <div class="campo">
+        <label for="anio_filtro">Año</label>
+        <select name="anio_filtro" id="anio_filtro">
+          <option value="">Todos</option>
+          {% for a in anios_disponibles %}
+            <option value="{{ a }}" {% if anio_filtro == a %}selected{% endif %}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="campo">
+        <label for="mes_filtro">Mes</label>
+        <select name="mes_filtro" id="mes_filtro">
+          <option value="">Todos</option>
+          {% for num, nombre in meses_nombre.items() %}
+            <option value="{{ num }}" {% if mes_filtro == num %}selected{% endif %}>{{ nombre }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit">Aplicar</button>
+      <div class="toggle-unidad">
+        <a class="{{ 'activo' if unidad=='pesos' else '' }}" href="{{ toggle_unidad_href if unidad=='ctd' else '#' }}">pe$</a>
+        <a class="{{ 'activo' if unidad=='ctd' else '' }}" href="{{ toggle_unidad_href if unidad=='pesos' else '#' }}">ctd</a>
+      </div>
+    </form>
+
+    {% if not detalle %}
+    <div class="panel">
+      <h2>Ranking de Ejecutivos de Cuenta <span class="sub">— {{ anio_filtro or 'todos los años' }}{% if mes_filtro %} / {{ meses_nombre[mes_filtro] }}{% endif %}, en {{ 'pesos' if unidad=='pesos' else 'unidades' }}</span></h2>
+      <table>
+        <tr><th>Ejecutivo</th><th style="text-align:right;">{{ 'Importe' if unidad=='pesos' else 'Unidades' }}</th></tr>
+        {% for nombre, valor, href in ranking_links %}
+        <tr>
+          <td><a class="link-fila" href="{{ href }}">{{ nombre }}</a></td>
+          <td class="num">{% if unidad=='pesos' %}${{ '{:,.0f}'.format(valor).replace(',', '.') }}{% else %}{{ '{:,.0f}'.format(valor).replace(',', '.') }}{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+    {% else %}
+    <a class="volver" href="{{ url_for('ejecutivos', **query_base) }}">← Volver al ranking</a>
+
+    {% if detalle.ubicaciones %}
+    <div class="ubicaciones">
+      Opera en: {% for centro, zona in detalle.ubicaciones %}{{ centro }} / {{ zona }}{% if not loop.last %}, {% endif %}{% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <h2>Evolución mensual <span class="sub">— comparando: {{ anios_comparar|join(', ') }} ({{ 'pesos' if unidad=='pesos' else 'unidades' }})</span></h2>
+      <form method="get" style="margin-bottom:14px; display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-size:12.5px;">
+        {% for campo, valor in query_base.items() %}
+          {% if campo not in ['anio_filtro','mes_filtro'] %}<input type="hidden" name="{{ campo }}" value="{{ valor }}">{% endif %}
+        {% endfor %}
+        <input type="hidden" name="ejecutivo" value="{{ detalle.nombre }}">
+        {% if anio_filtro %}<input type="hidden" name="anio_filtro" value="{{ anio_filtro }}">{% endif %}
+        {% if mes_filtro %}<input type="hidden" name="mes_filtro" value="{{ mes_filtro }}">{% endif %}
+        <span style="color:var(--acero-600);">Comparar años:</span>
+        {% for a in anios_disponibles %}
+        <label style="display:flex; align-items:center; gap:3px;">
+          <input type="checkbox" name="anios_comparar" value="{{ a }}" {% if a in anios_comparar %}checked{% endif %}>
+          {{ a }}
+        </label>
+        {% endfor %}
+        <button type="submit" style="font-family:inherit; font-size:12px; padding:4px 12px; background:var(--acero-800); color:white; border:none; cursor:pointer;">Actualizar</button>
+      </form>
+      <canvas id="chartEjecutivo"></canvas>
+    </div>
+
+    <div class="panel">
+      <h2>Cartera de clientes <span class="sub">— {{ anio_filtro or 'todos los años' }}{% if mes_filtro %} / {{ meses_nombre[mes_filtro] }}{% endif %}</span></h2>
+      <table>
+        <tr><th>Cliente</th><th style="text-align:right;">pe$</th><th style="text-align:right;">ctd</th></tr>
+        {% for c in detalle.clientes %}
+        <tr>
+          <td><a class="link-fila" href="{{ url_for('analisis_entidad', campo='cliente_final_nombre', valor=c.cliente, **query_base) }}">{{ c.cliente }}</a></td>
+          <td class="num">${{ '{:,.0f}'.format(c.importe_neto).replace(',', '.') }}</td>
+          <td class="num">{{ '{:,.0f}'.format(c.cantidad).replace(',', '.') }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+    </div>
+
+    <script>
+      const datos = {{ detalle.chart_json | safe }};
+      const paleta = ['#B4652B', '#1B2A38', '#2F7A5C', '#8CA0AF', '#6B3F94', '#C9A227'];
+      new Chart(document.getElementById('chartEjecutivo'), {
+        type: 'line',
+        data: {
+          labels: datos.meses,
+          datasets: datos.series.map((s, i) => ({
+            label: s.anio, data: s.valores, borderColor: paleta[i % paleta.length],
+            backgroundColor: paleta[i % paleta.length], tension: 0.25, pointRadius: 3, pointHoverRadius: 6,
+          })),
+        },
+        options: {
+          interaction: { mode: 'index', intersect: false },
+          plugins: { legend: { position: 'top' } },
+        },
+      });
+    </script>
+    {% endif %}
+  </main>
+</body>
+</html>
