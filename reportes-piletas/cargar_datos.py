@@ -53,7 +53,7 @@ def cargar_facturacion(conn):
                  centro_distribucion, zona, sucursal, cantidad, importe, importe_neto)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ''', (
-            _parsear_fecha(r.get('fv0_fecalt')), tipo, r.get('client'), r.get('Razon Social Distr'),
+            _parsear_fecha(r.get('ClaveFecha')), tipo, r.get('client'), r.get('Razon Social Distr'),
             r.get('Razon Social CF'), r.get('articu'), r.get('Familia1'), r.get('Familia2'),
             r.get('Familia3'), r.get('Familia4'),
             r.get('Ejecutivo de Cuenta'), r.get('Centro Distribucion'), r.get('Zona Desc Distr'),
