@@ -4,6 +4,9 @@
 # hardcodeadas en el codigo. Ver .env.example.
 
 import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Carpeta donde el extractor de Node (qlik-extractor) deja los CSV
 DATA_DIR = os.environ.get('DATA_DIR', './data')

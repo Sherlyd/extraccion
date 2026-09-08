@@ -1,14 +1,16 @@
 # db.py
 # Capa de conexion a Postgres. La URL sale de la variable de entorno
-# DATABASE_URL (asi la entrega AWS RDS/App Runner). ConexionPG envuelve
+# DATABASE_URL (asi la entrega AWS RDS/App Runner) o de un archivo
+# .env local para desarrollo (ver .env.example). ConexionPG envuelve
 # la conexion real de psycopg2 para que conn.execute(sql, params) siga
-# funcionando igual que con sqlite3.Connection -- el resto del codigo
-# (app.py, roles.py, run_diario.py) no tuvo que reescribirse llamada
-# por llamada, solo los placeholders SQL (%s en vez de ?).
+# funcionando igual que con sqlite3.Connection.
 
 import os
+from dotenv import load_dotenv
 import psycopg2
 import psycopg2.extras
+
+load_dotenv()  # lee .env si existe; si no, no hace nada (no rompe)
 
 DATABASE_URL = os.environ.get(
     'DATABASE_URL',
