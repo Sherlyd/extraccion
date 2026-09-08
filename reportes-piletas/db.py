@@ -1,63 +1,59 @@
 # db.py
-# Conexion y creacion de la base de datos SQLite.
+# Capa de conexion a Postgres. La URL sale de la variable de entorno
+# DATABASE_URL (asi la entrega AWS RDS/App Runner). ConexionPG envuelve
+# la conexion real de psycopg2 para que conn.execute(sql, params) siga
+# funcionando igual que con sqlite3.Connection -- el resto del codigo
+# (app.py, roles.py, run_diario.py) no tuvo que reescribirse llamada
+# por llamada, solo los placeholders SQL (%s en vez de ?).
 
-import sqlite3
-import config
+import os
+import psycopg2
+import psycopg2.extras
+
+DATABASE_URL = os.environ.get(
+    'DATABASE_URL',
+    'postgresql://postgres:postgres123@localhost:5432/reportes_piletas',  # solo desarrollo local
+)
+
+
+class ConexionPG:
+    def __init__(self, pg_conn):
+        self._conn = pg_conn
+
+    def execute(self, sql, params=None):
+        cur = self._conn.cursor()
+        cur.execute(sql, params or [])
+        return cur
+
+    def cursor(self):
+        return self._conn.cursor()
+
+    def commit(self):
+        self._conn.commit()
+
+    def rollback(self):
+        self._conn.rollback()
+
+    def close(self):
+        self._conn.close()
 
 
 def get_connection():
-    conn = sqlite3.connect(config.DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute('PRAGMA foreign_keys = ON')
-    return conn
+    pg_conn = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+    return ConexionPG(pg_conn)
 
 
 def init_db():
-    """Crea las tablas si no existen. Se puede correr las veces que sea,
-    no borra datos existentes."""
+    """Crea las tablas si no existen. Se puede correr las veces que
+    sea, no borra datos existentes."""
     conn = get_connection()
-    with open('./db/schema.sql', encoding='utf-8') as f:
-        conn.executescript(f.read())
-
-    # Migracion defensiva: si la base ya existia de antes de que
-    # agregaramos login con contraseña, sumamos la columna sin perder
-    # los usuarios ya cargados.
-    columnas_usuarios = [c['name'] for c in conn.execute('PRAGMA table_info(usuarios)').fetchall()]
-    if 'password_hash' not in columnas_usuarios:
-        conn.execute("ALTER TABLE usuarios ADD COLUMN password_hash TEXT NOT NULL DEFAULT ''")
-    if 'centro_distribucion' not in columnas_usuarios:
-        conn.execute("ALTER TABLE usuarios ADD COLUMN centro_distribucion TEXT")
-    if 'zona' not in columnas_usuarios:
-        conn.execute("ALTER TABLE usuarios ADD COLUMN zona TEXT")
-
-    columnas_fact = [c['name'] for c in conn.execute('PRAGMA table_info(facturacion)').fetchall()]
-    if 'centro_distribucion' not in columnas_fact:
-        conn.execute("ALTER TABLE facturacion ADD COLUMN centro_distribucion TEXT")
-    if 'zona' not in columnas_fact:
-        conn.execute("ALTER TABLE facturacion ADD COLUMN zona TEXT")
-    if 'familia4' not in columnas_fact:
-        conn.execute("ALTER TABLE facturacion ADD COLUMN familia4 TEXT")
-    if 'familia2' not in columnas_fact:
-        conn.execute("ALTER TABLE facturacion ADD COLUMN familia2 TEXT")
-    if 'familia3' not in columnas_fact:
-        conn.execute("ALTER TABLE facturacion ADD COLUMN familia3 TEXT")
-
-    columnas_ped = [c['name'] for c in conn.execute('PRAGMA table_info(pedidos)').fetchall()]
-    if 'centro_distribucion' not in columnas_ped:
-        conn.execute("ALTER TABLE pedidos ADD COLUMN centro_distribucion TEXT")
-    if 'zona' not in columnas_ped:
-        conn.execute("ALTER TABLE pedidos ADD COLUMN zona TEXT")
-
-    columnas_cart = [c['name'] for c in conn.execute('PRAGMA table_info(cartera_pendiente)').fetchall()]
-    if 'centro_distribucion' not in columnas_cart:
-        conn.execute("ALTER TABLE cartera_pendiente ADD COLUMN centro_distribucion TEXT")
-    if 'zona' not in columnas_cart:
-        conn.execute("ALTER TABLE cartera_pendiente ADD COLUMN zona TEXT")
-
+    ruta_schema = os.path.join(os.path.dirname(__file__), 'db', 'schema_postgres.sql')
+    with open(ruta_schema, encoding='utf-8') as f:
+        conn.execute(f.read())
     conn.commit()
     conn.close()
 
 
 if __name__ == '__main__':
     init_db()
-    print('Base de datos inicializada en', config.DB_PATH)
+    print('Base de datos inicializada (Postgres):', DATABASE_URL.split('@')[-1])

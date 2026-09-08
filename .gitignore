@@ -21,3 +21,5 @@ variables.txt
 db/
 data/
 logs/
+hosts.txt
+esquema aplicacion.txt

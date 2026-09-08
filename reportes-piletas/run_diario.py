@@ -1,13 +1,13 @@
 # run_diario.py
-# Orquesta el proceso completo de la mañana, SIN intervencion humana:
-#   1. Carga los CSV frescos que dejo el extractor de Node
-#   2. Para cada usuario activo, calcula sus metricas ya filtradas
-#      por su propio alcance de rol (centro/zona/rubro/ejecutivo)
-#   3. Arma el mail ya interpretado (narrativa + semaforo + alertas)
-#      y lo envia solo -- nadie tiene que mandar nada uno por uno.
+# Orquesta el proceso diario completo, sin intervencion humana:
+#   1. Carga los CSV frescos a Postgres (agregado + ventana de detalle)
+#   2. Para cada usuario activo, calcula sus metricas segun su alcance
+#   3. Arma el mail ya interpretado y lo envia solo
 #
-# Pensado para correr una vez por dia via Task Scheduler, despues del
-# extractor de Node.
+# La comparacion de periodo usa SIEMPRE el agregado mensual (historico
+# completo desde 2015), nunca el detalle (que solo cubre la ventana
+# reciente) -- asi la comparacion "vs. los ultimos 12 meses" es exacta
+# aunque el detalle linea por linea no llegue tan atras.
 
 import config
 import cargar_datos
@@ -15,6 +15,14 @@ import metricas
 import email_informe
 from db import get_connection
 from roles import clausula_where, usuarios_activos
+
+
+def _mensual_a_filas(rows_mensual):
+    return [{
+        'fecha': f"{r['anio']:04d}-{r['mes']:02d}-01",
+        'importe_neto': float(r['importe_neto'] or 0),
+        'cantidad': float(r['cantidad'] or 0),
+    } for r in rows_mensual]
 
 
 def main():
@@ -30,16 +38,18 @@ def main():
     for usuario in usuarios:
         where, params = clausula_where(usuario)
 
-        filas_fact = conn.execute(
-            f'SELECT * FROM facturacion WHERE {where}', params
-        ).fetchall()
-        filas_cartera = conn.execute(
-            f'SELECT * FROM cartera_pendiente WHERE {where}', params
-        ).fetchall()
+        filas_mensual = _mensual_a_filas(
+            conn.execute(f'SELECT * FROM facturacion_mensual WHERE {where}', params).fetchall()
+        )
+        filas_detalle = [
+            {**dict(f), 'fecha': f['fecha'].isoformat()}
+            for f in conn.execute(f'SELECT * FROM facturacion_detalle WHERE {where}', params).fetchall()
+        ]
+        filas_cartera = conn.execute(f'SELECT * FROM cartera_pendiente WHERE {where}', params).fetchall()
 
-        comparacion = metricas.comparacion_periodo(filas_fact)
-        top_articulos = metricas.top_articulos_detalle(filas_fact, n=5)
-        top_distribuidores = metricas.top_n(filas_fact, 'distribuidor_nombre', n=5)
+        comparacion = metricas.comparacion_periodo(filas_mensual)
+        top_articulos = metricas.top_articulos_detalle(filas_detalle, n=5)
+        top_distribuidores = metricas.top_n(filas_detalle, 'distribuidor_nombre', n=5)
         cartera = metricas.cartera_pendiente_resumen(filas_cartera)
 
         umbral = config.DESVIO_PCT_ALERTA_DEFAULT

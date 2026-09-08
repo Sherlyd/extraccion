@@ -1,37 +1,31 @@
 # gestionar_usuarios.py
-# Crear y administrar usuarios del dashboard. La contraseña nunca se
-# guarda en texto plano -- se guarda un hash (werkzeug, la misma
-# libreria que ya usa Flask).
+# Crear y administrar usuarios (Postgres). La contraseña nunca se
+# guarda en texto plano.
 #
 # Uso:
-#   python gestionar_usuarios.py crear "Nombre Apellido" email@empresa.com contraseña rol [sucursal] [rubro] [ejecutivo_cuenta]
+#   python gestionar_usuarios.py crear "Nombre" email contraseña rol [centro] [zona] [sucursal] [rubro] [ejecutivo_cuenta]
 #   python gestionar_usuarios.py listar
-#   python gestionar_usuarios.py cambiar-clave email@empresa.com nueva_contraseña
-#   python gestionar_usuarios.py desactivar email@empresa.com
-#
-# Ejemplos:
-#   python gestionar_usuarios.py crear "Juan Perez" juan.perez@johnsonacero.com "unaClaveSegura123" gerente_general
-#   python gestionar_usuarios.py crear "Maria Lopez" maria.lopez@johnsonacero.com "otraClave456" gerente_sucursal Parana "VENTA PILETAS"
+#   python gestionar_usuarios.py cambiar-clave email nueva_contraseña
+#   python gestionar_usuarios.py desactivar email
 
 import sys
 from werkzeug.security import generate_password_hash
 from db import get_connection, init_db
 
 
-def crear(nombre, email, password, rol, centro_distribucion=None, zona=None, sucursal=None,
-          rubro=None, ejecutivo_cuenta=None):
+def crear(nombre, email, password, rol, centro=None, zona=None, sucursal=None, rubro=None, ejecutivo=None):
     init_db()
     conn = get_connection()
     try:
         conn.execute('''
             INSERT INTO usuarios (nombre, email, password_hash, rol, centro_distribucion, zona,
                                    sucursal, rubro, ejecutivo_cuenta)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ''', (nombre, email, generate_password_hash(password), rol, centro_distribucion, zona,
-              sucursal, rubro, ejecutivo_cuenta))
+            VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)
+        ''', (nombre, email, generate_password_hash(password), rol, centro, zona, sucursal, rubro, ejecutivo))
         conn.commit()
         print(f'Usuario creado: {nombre} <{email}> — rol: {rol}')
     except Exception as e:
+        conn.rollback()
         print(f'Error al crear usuario: {e}')
     finally:
         conn.close()
@@ -43,26 +37,27 @@ def listar():
     print(f'\n{len(usuarios)} usuarios:\n')
     for u in usuarios:
         estado = 'activo' if u['activo'] else 'INACTIVO'
-        print(f"- {u['nombre']} <{u['email']}> — {u['rol']} — "
-              f"centro={u['centro_distribucion']} zona={u['zona']} sucursal={u['sucursal']} "
-              f"rubro={u['rubro']} ({estado})")
+        print(f"- {u['nombre']} <{u['email']}> — {u['rol']} — centro={u['centro_distribucion']} "
+              f"zona={u['zona']} sucursal={u['sucursal']} rubro={u['rubro']} ({estado})")
     conn.close()
 
 
 def cambiar_clave(email, password):
     conn = get_connection()
-    cur = conn.execute('UPDATE usuarios SET password_hash = ? WHERE email = ?',
+    cur = conn.execute('UPDATE usuarios SET password_hash = %s WHERE email = %s',
                         (generate_password_hash(password), email))
+    afectadas = cur.rowcount
     conn.commit()
-    print('Contraseña actualizada.' if cur.rowcount else f'No se encontro un usuario con email {email}')
+    print('Contraseña actualizada.' if afectadas else f'No se encontro un usuario con email {email}')
     conn.close()
 
 
 def desactivar(email):
     conn = get_connection()
-    cur = conn.execute('UPDATE usuarios SET activo = 0 WHERE email = ?', (email,))
+    cur = conn.execute('UPDATE usuarios SET activo = false WHERE email = %s', (email,))
+    afectadas = cur.rowcount
     conn.commit()
-    print('Usuario desactivado.' if cur.rowcount else f'No se encontro un usuario con email {email}')
+    print('Usuario desactivado.' if afectadas else f'No se encontro un usuario con email {email}')
     conn.close()
 
 
@@ -75,15 +70,11 @@ if __name__ == '__main__':
 
     if comando == 'crear':
         if len(sys.argv) < 6:
-            print('Uso: python gestionar_usuarios.py crear "Nombre" email contraseña rol [centro_distribucion] [zona] [sucursal] [rubro] [ejecutivo_cuenta]')
+            print('Uso: python gestionar_usuarios.py crear "Nombre" email contraseña rol [centro] [zona] [sucursal] [rubro] [ejecutivo]')
             sys.exit(1)
         nombre, email, password, rol = sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5]
-        centro = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else None
-        zona = sys.argv[7] if len(sys.argv) > 7 and sys.argv[7] else None
-        sucursal = sys.argv[8] if len(sys.argv) > 8 and sys.argv[8] else None
-        rubro = sys.argv[9] if len(sys.argv) > 9 and sys.argv[9] else None
-        ejecutivo = sys.argv[10] if len(sys.argv) > 10 and sys.argv[10] else None
-        crear(nombre, email, password, rol, centro, zona, sucursal, rubro, ejecutivo)
+        resto = sys.argv[6:11] + [None] * 5
+        crear(nombre, email, password, rol, *resto[:5])
 
     elif comando == 'listar':
         listar()
